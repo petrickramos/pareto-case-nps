@@ -5,7 +5,10 @@ API FastAPI para expor o sistema multi-agente NPS
 
 import sys
 import traceback
-sys.path.append('/Users/julianamoraesferreira/Documents/Projetos-Dev-Petrick/pareto-case/langchain')
+import os
+
+# Remover path absoluto para compatibilidade com Vercel
+# sys.path.append('/Users/julianamoraesferreira/Documents/Projetos-Dev-Petrick/pareto-case/langchain')
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,6 +20,7 @@ from agents.context_collector import ContextCollectorAgent
 from agents.sentiment_analyzer import SentimentAnalyzerAgent
 from agents.message_generator import MessageGeneratorAgent
 from agents.response_evaluator import ResponseEvaluatorAgent
+from agents.empathetic_response import EmpatheticResponseGenerator
 from hubspot_client import HubSpotClient
 
 # Criar aplicação FastAPI
@@ -40,6 +44,7 @@ context_collector = ContextCollectorAgent()
 sentiment_analyzer = SentimentAnalyzerAgent()
 message_generator = MessageGeneratorAgent()
 response_evaluator = ResponseEvaluatorAgent()
+empathetic_generator = EmpatheticResponseGenerator()
 hubspot_client = HubSpotClient()
 
 # Modelos Pydantic
@@ -55,6 +60,7 @@ class EvaluateResponse(BaseModel):
     insights: Dict[str, Any]
     acoes_recomendadas: list
     resumo_executivo: str
+    resposta_empatica: str  # Nova: resposta humanizada para o cliente
 
 
 @app.get("/health")
@@ -192,13 +198,20 @@ async def evaluate_nps_response(request: EvaluateRequest):
             context=None
         )
         
+        # Gerar resposta empática para o cliente
+        empathetic_response = empathetic_generator.generate_response(
+            score=request.score,
+            feedback_text=request.feedback
+        )
+        
         return EvaluateResponse(
             nps_score=result["nps_score"],
             classificacao=result["classificacao"],
             prioridade=result["prioridade"],
             insights=result["insights"],
             acoes_recomendadas=result["acoes_recomendadas"],
-            resumo_executivo=result["resumo_executivo"]
+            resumo_executivo=result["resumo_executivo"],
+            resposta_empatica=empathetic_response
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro na avaliação: {str(e)}")
