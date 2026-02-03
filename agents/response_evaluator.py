@@ -42,12 +42,13 @@ class ResponseEvaluatorAgent:
             "insights": insights,
             "acoes_recomendadas": actions,
             "prioridade": self._calculate_priority(nps_score, insights),
-            "resumo_executivo": self._generate_summary(nps_score, classification, insights)
+            "resumo_executivo": self._generate_summary(nps_score, classification, insights, feedback_text, context)
         }
         
-        print(f"✅ Avaliação: {classification} | Prioridade: {result['prioridade']}")
+        print(f"✅ Avaliação: {classification['categoria']} | Prioridade: {result['prioridade']}")
         
         return result
+
     
     def _classify_nps(self, score: int) -> Dict[str, Any]:
         """Classifica a nota NPS"""
@@ -226,29 +227,98 @@ class ResponseEvaluatorAgent:
         else:
             return "BAIXA"
     
-    def _generate_summary(self, score: int, classification: Dict, insights: Dict) -> str:
-        """Gera resumo executivo da avaliação"""
+    def _generate_summary(self, score: int, classification: Dict, insights: Dict, feedback_text: str = "", context: Optional[Dict] = None) -> str:
+        """
+        Gera resumo executivo da avaliação usando LLM
+        
+        Substitui templates hardcoded por geração dinâmica e acionável
+        """
         
         categoria = classification["categoria"]
         emoji = classification["emoji"]
+        sentimento = insights.get("sentimento_detectado", "AUSENTE")
+        temas = insights.get("temas", [])
+        
+        # Enriquecer contexto se disponível
+        contexto_cliente = ""
+        if context:
+            cliente = context.get("cliente", {})
+            metricas = context.get("metricas", {})
+            contexto_cliente = f"""
+- Cliente: {cliente.get('nome', 'N/A')}
+- Valor total: R$ {metricas.get('valor_total', 0):,.2f}
+- Tempo como cliente: {cliente.get('tempo_como_cliente', 'N/A')}"""
+        
+        # Prompt LLM
+        prompt = f"""Você é um analista de experiência do cliente especializado em NPS.
+
+DADOS DA AVALIAÇÃO:
+- Score NPS: {score}/10
+- Categoria: {categoria}
+- Sentimento detectado: {sentimento}
+- Feedback textual: "{feedback_text if feedback_text else 'Sem feedback textual'}"
+- Temas identificados: {', '.join(temas) if temas else 'Nenhum'}
+{contexto_cliente}
+
+TAREFA:
+Crie um resumo executivo CONCISO, ESPECÍFICO e ACIONÁVEL desta avaliação NPS.
+
+FORMATO OBRIGATÓRIO:
+{emoji} [Classificação] - [Insight principal baseado no feedback]. [Ação sugerida específica].
+
+DIRETRIZES:
+- Máximo 2 linhas
+- Seja ESPECÍFICO, não genérico
+- Mencione detalhes do feedback se houver
+- Sugira ação CLARA e ACIONÁVEL
+- Use linguagem executiva e direta
+- NÃO repita informações óbvias (ex: "Cliente PROMOTOR está satisfeito")
+
+EXEMPLOS DE BONS RESUMOS:
+- 🤩 Cliente PROMOTOR - Extremamente satisfeito com a consultoria estratégica e agilidade da equipe. Candidato ideal para case de sucesso e programa de indicações.
+- 😐 Cliente NEUTRO - Satisfação moderada, menciona lentidão no suporte técnico. Priorizar follow-up em 48h para entender pontos de melhoria específicos.
+- 😞 Cliente DETRATOR - Frustrado com atrasos recorrentes na implementação do projeto X. URGENTE: CS deve contatar em 24h com plano de recuperação e compensação.
+
+IMPORTANTE: Retorne APENAS o resumo, sem explicações."""
+
+        try:
+            # Chamar LLM via TessClient
+            response = self.tess.generate(
+                prompt=prompt,
+                max_tokens=150,
+                temperature=0.7  # Balanceamento entre criatividade e consistência
+            )
+            
+            resumo = response.strip()
+            print(f"✅ Resumo executivo LLM gerado")
+            return resumo
+            
+        except Exception as e:
+            print(f"⚠️ Erro ao gerar resumo via LLM: {e}")
+            print("📝 Usando fallback para template padrão")
+            return self._generate_fallback_summary(score, categoria, emoji, sentimento, temas)
+    
+    def _generate_fallback_summary(self, score: int, categoria: str, emoji: str, sentimento: str, temas: list) -> str:
+        """Resumo de fallback caso o LLM falhe"""
         
         if categoria == "DETRATOR":
             return f"{emoji} Cliente DETRATOR ({score}/10) - REQUER AÇÃO IMEDIATA. " \
-                   f"Sentimento: {insights['sentimento_detectado']}. " \
-                   f"Temas: {', '.join(insights['temas']) if insights['temas'] else 'Nenhum identificado'}."
+                   f"Sentimento: {sentimento}. " \
+                   f"Temas: {', '.join(temas) if temas else 'Nenhum identificado'}."
         
         elif categoria == "NEUTRO":
             return f"{emoji} Cliente NEUTRO ({score}/10) - Oportunidade de engajamento. " \
-                   f"Sentimento: {insights['sentimento_detectado']}. " \
+                   f"Sentimento: {sentimento}. " \
                    f"Potencial de conversão para Promotor."
         
         elif categoria == "PROMOTOR":
             return f"{emoji} Cliente PROMOTOR ({score}/10) - Excelente! " \
-                   f"Sentimento: {insights['sentimento_detectado']}. " \
+                   f"Sentimento: {sentimento}. " \
                    f"Candidato a programa de advocacia."
         
         else:
             return f"❓ Nota inválida ({score}) - Verificar resposta."
+
     
     def batch_evaluate(self, responses: list) -> Dict[str, Any]:
         """Avalia múltiplas respostas e gera métricas consolidadas"""

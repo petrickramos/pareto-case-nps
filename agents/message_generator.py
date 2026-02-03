@@ -29,13 +29,8 @@ class MessageGeneratorAgent:
         sentimento = analysis.get("sentimento_geral", "NEUTRO")
         risco = analysis.get("risco_churn", "MEDIO")
         
-        # Escolher estratégia baseada no perfil
-        if risco == "ALTO" or sentimento == "NEGATIVO":
-            mensagem = self._generate_careful_message(context, analysis)
-        elif sentimento == "POSITIVO":
-            mensagem = self._generate_enthusiastic_message(context, analysis)
-        else:
-            mensagem = self._generate_standard_message(context, analysis)
+        # Usar LLM para gerar mensagem personalizada
+        mensagem = self._generate_llm_message(context, analysis)
         
         result = {
             "tipo": "NPS",
@@ -53,14 +48,114 @@ class MessageGeneratorAgent:
         print(f"✅ Mensagem gerada: Tom {result['tom']}")
         
         return result
+
     
-    def _generate_careful_message(self, context: Dict, analysis: Dict) -> str:
-        """Mensagem para clientes com risco/cautelosos"""
+    def _generate_llm_message(self, context: Dict, analysis: Dict) -> str:
+        """
+        Gera mensagem personalizada usando LLM
+        
+        Substitui os templates hardcoded por geração dinâmica e natural
+        """
         
         cliente = context.get("cliente", {})
-        nome = cliente.get("nome", "Cliente").split()[0]  # Primeiro nome
+        metricas = context.get("metricas", {})
+        nome = cliente.get("nome", "Cliente").split()[0]
+        sentimento = analysis.get("sentimento_geral", "NEUTRO")
+        risco = analysis.get("risco_churn", "MEDIO")
         
-        mensagem = f"""Olá {nome},
+        # Determinar tom baseado no perfil
+        if risco == "ALTO" or sentimento == "NEGATIVO":
+            tom = "empático e cuidadoso"
+            objetivo = "recuperar a confiança e entender frustrações"
+        elif sentimento == "POSITIVO":
+            tom = "entusiasta e caloroso"
+            objetivo = "celebrar a parceria e fortalecer o relacionamento"
+        else:
+            tom = "profissional e amigável"
+            objetivo = "coletar feedback construtivo"
+        
+        # Enriquecer contexto com dados relevantes
+        contexto_resumido = self._summarize_context(context, analysis)
+        
+        # Prompt LLM
+        prompt = f"""Você é um assistente de relacionamento com clientes da Pareto, uma empresa de consultoria estratégica.
+
+CONTEXTO DO CLIENTE:
+- Nome: {nome}
+- Sentimento detectado: {sentimento}
+- Nível de risco de churn: {risco}
+- Valor total em negócios: R$ {metricas.get('valor_total', 0):,.2f}
+- Tempo como cliente: {cliente.get('tempo_como_cliente', 'Não especificado')}
+{contexto_resumido}
+
+TAREFA:
+Escreva uma mensagem NATURAL e PERSONALIZADA convidando {nome} a avaliar sua experiência através de uma pesquisa NPS (escala de 0 a 10).
+
+DIRETRIZES:
+- Tom: {tom}
+- Objetivo: {objetivo}
+- Seja breve (máximo 4-5 linhas)
+- Mencione algo específico do histórico do cliente se relevante
+- Evite linguagem corporativa genérica ou clichês
+- Use uma saudação natural e uma despedida apropriada ao tom
+- NÃO use emojis
+- Inclua [LINK_PESQUISA] onde o link da pesquisa deve aparecer
+
+IMPORTANTE: 
+- Retorne APENAS a mensagem, sem explicações ou comentários
+- A mensagem deve parecer escrita por uma pessoa real, não por um robô
+- Varie o vocabulário e a estrutura das frases
+"""
+
+        try:
+            # Chamar LLM via TessClient
+            response = self.tess.generate(
+                prompt=prompt,
+                max_tokens=300,
+                temperature=0.8  # Maior variação para mensagens mais naturais
+            )
+            
+            mensagem = response.strip()
+            print(f"✅ Mensagem LLM gerada (tom: {tom})")
+            return mensagem
+            
+        except Exception as e:
+            print(f"⚠️ Erro ao gerar mensagem via LLM: {e}")
+            print("📝 Usando fallback para template padrão")
+            return self._generate_fallback_message(nome, sentimento, risco)
+    
+    def _summarize_context(self, context: Dict, analysis: Dict) -> str:
+        """Cria um resumo do contexto para enriquecer o prompt"""
+        
+        resumo_parts = []
+        
+        # Deals recentes
+        deals = context.get("deals", [])
+        if deals:
+            deal_recente = deals[0]
+            resumo_parts.append(f"- Último negócio: {deal_recente.get('titulo', 'N/A')}")
+        
+        # Tickets abertos
+        tickets = context.get("tickets", [])
+        if tickets:
+            tickets_abertos = [t for t in tickets if t.get("status") == "ABERTO"]
+            if tickets_abertos:
+                resumo_parts.append(f"- Tickets abertos: {len(tickets_abertos)}")
+        
+        # Fatores positivos/negativos da análise
+        if analysis.get("fatores_positivos"):
+            resumo_parts.append(f"- Pontos fortes: {', '.join(analysis['fatores_positivos'][:2])}")
+        
+        if analysis.get("fatores_negativos"):
+            resumo_parts.append(f"- Pontos de atenção: {', '.join(analysis['fatores_negativos'][:2])}")
+        
+        return "\n".join(resumo_parts) if resumo_parts else "- Sem histórico recente disponível"
+    
+    def _generate_fallback_message(self, nome: str, sentimento: str, risco: str) -> str:
+        """Mensagem de fallback caso o LLM falhe"""
+        
+        if risco == "ALTO" or sentimento == "NEGATIVO":
+            return f"""Olá {nome},
 
 Esperamos que esteja bem. Notamos que você teve algumas interações recentes conosco e queremos garantir que sua experiência tenha sido a melhor possível.
 
@@ -73,24 +168,10 @@ Agradecemos sua paciência e confiança em nossa parceria.
 Atenciosamente,
 Equipe Pareto"""
         
-        return mensagem
-    
-    def _generate_enthusiastic_message(self, context: Dict, analysis: Dict) -> str:
-        """Mensagem para clientes satisfeitos/engajados"""
-        
-        cliente = context.get("cliente", {})
-        metricas = context.get("metricas", {})
-        nome = cliente.get("nome", "Cliente").split()[0]
-        
-        # Personalizar se for cliente de alto valor
-        valor = metricas.get("valor_total", 0)
-        tempo = cliente.get("tempo_como_cliente", "")
-        
-        mensagem = f"""Olá {nome},
+        elif sentimento == "POSITIVO":
+            return f"""Olá {nome},
 
-Você é um cliente {valor > 20000 and 'valioso' or 'importante'} para nós! {tempo and f'Há {tempo}' or 'Há algum tempo'} você confia em nossa parceria e isso significa muito.
-
-Gostaríamos de ouvir sua opinião sobre como podemos ser ainda melhores. Sua experiência e feedback nos ajudam a evoluir constantemente.
+Você é um cliente importante para nós! Gostaríamos de ouvir sua opinião sobre como podemos ser ainda melhores.
 
 Responda nossa pesquisa rápida (só 1 minuto): [LINK_PESQUISA]
 
@@ -99,19 +180,10 @@ Agradecemos por fazer parte da nossa história!
 Um abraço,
 Equipe Pareto"""
         
-        return mensagem
-    
-    def _generate_standard_message(self, context: Dict, analysis: Dict) -> str:
-        """Mensagem padrão para clientes neutros"""
-        
-        cliente = context.get("cliente", {})
-        nome = cliente.get("nome", "Cliente").split()[0]
-        
-        mensagem = f"""Olá {nome},
+        else:
+            return f"""Olá {nome},
 
 Como parte do nosso compromisso contínuo com a excelência, gostaríamos de ouvir sua opinião sobre nossos serviços.
-
-Sua avaliação nos ajuda a identificar o que estamos fazendo bem e onde podemos melhorar.
 
 Poderia responder nossa pesquisa rápida? Leva apenas 1 minuto: [LINK_PESQUISA]
 
@@ -119,8 +191,7 @@ Agradecemos sua participação!
 
 Atenciosamente,
 Equipe Pareto"""
-        
-        return mensagem
+
     
     def _generate_subject(self, context: Dict, analysis: Dict) -> str:
         """Gera linha de assunto personalizada"""
