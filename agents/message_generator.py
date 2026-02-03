@@ -1,16 +1,55 @@
 """
 Agente Gerador de Mensagem
 Responsável por criar mensagens personalizadas de pesquisa NPS
+
+MIGRADO PARA LANGCHAIN: Usa TessLLM wrapper para orquestração via LangChain
 """
 
 from typing import Dict, Any
-from tess_client import TessClient
+from langchain.prompts import PromptTemplate
+from langchain.chains import LLMChain
+from agents.llm.tess_llm import TessLLM
 
 
 class MessageGeneratorAgent:
     def __init__(self):
-        self.tess = TessClient()
-        self.agent_id = "message-generator"  # Placeholder
+        # Usar TessLLM via LangChain
+        self.llm = TessLLM(temperature=0.8, max_tokens=300)
+        self.agent_id = "message-generator"
+        
+        # Prompt template estruturado
+        self.message_prompt = PromptTemplate(
+            input_variables=["nome", "sentimento", "risco", "tom", "objetivo", "contexto"],
+            template="""Você é um assistente de relacionamento com clientes da Pareto, uma empresa de consultoria estratégica.
+
+CONTEXTO DO CLIENTE:
+- Nome: {nome}
+- Sentimento detectado: {sentimento}
+- Nível de risco de churn: {risco}
+{contexto}
+
+TAREFA:
+Escreva uma mensagem NATURAL e PERSONALIZADA convidando {nome} a avaliar sua experiência através de uma pesquisa NPS (escala de 0 a 10).
+
+DIRETRIZES:
+- Tom: {tom}
+- Objetivo: {objetivo}
+- Seja breve (máximo 4-5 linhas)
+- Mencione algo específico do histórico do cliente se relevante
+- Evite linguagem corporativa genérica ou clichês
+- Use uma saudação natural e uma despedida apropriada ao tom
+- NÃO use emojis
+- Inclua [LINK_PESQUISA] onde o link da pesquisa deve aparecer
+
+IMPORTANTE: 
+- Retorne APENAS a mensagem, sem explicações ou comentários
+- A mensagem deve parecer escrita por uma pessoa real, não por um robô
+- Varie o vocabulário e a estrutura das frases
+"""
+        )
+        
+        # Criar chain
+        self.message_chain = LLMChain(llm=self.llm, prompt=self.message_prompt)
     
     def generate(self, context: Dict[str, Any], analysis: Dict[str, Any]) -> Dict[str, str]:
         """
@@ -52,9 +91,9 @@ class MessageGeneratorAgent:
     
     def _generate_llm_message(self, context: Dict, analysis: Dict) -> str:
         """
-        Gera mensagem personalizada usando LLM
+        Gera mensagem personalizada usando LangChain
         
-        Substitui os templates hardcoded por geração dinâmica e natural
+        Usa TessLLM via LangChain chain para geração estruturada
         """
         
         cliente = context.get("cliente", {})
@@ -77,50 +116,27 @@ class MessageGeneratorAgent:
         # Enriquecer contexto com dados relevantes
         contexto_resumido = self._summarize_context(context, analysis)
         
-        # Prompt LLM
-        prompt = f"""Você é um assistente de relacionamento com clientes da Pareto, uma empresa de consultoria estratégica.
-
-CONTEXTO DO CLIENTE:
-- Nome: {nome}
-- Sentimento detectado: {sentimento}
-- Nível de risco de churn: {risco}
-- Valor total em negócios: R$ {metricas.get('valor_total', 0):,.2f}
+        # Adicionar métricas ao contexto
+        contexto_completo = f"""- Valor total em negócios: R$ {metricas.get('valor_total', 0):,.2f}
 - Tempo como cliente: {cliente.get('tempo_como_cliente', 'Não especificado')}
-{contexto_resumido}
-
-TAREFA:
-Escreva uma mensagem NATURAL e PERSONALIZADA convidando {nome} a avaliar sua experiência através de uma pesquisa NPS (escala de 0 a 10).
-
-DIRETRIZES:
-- Tom: {tom}
-- Objetivo: {objetivo}
-- Seja breve (máximo 4-5 linhas)
-- Mencione algo específico do histórico do cliente se relevante
-- Evite linguagem corporativa genérica ou clichês
-- Use uma saudação natural e uma despedida apropriada ao tom
-- NÃO use emojis
-- Inclua [LINK_PESQUISA] onde o link da pesquisa deve aparecer
-
-IMPORTANTE: 
-- Retorne APENAS a mensagem, sem explicações ou comentários
-- A mensagem deve parecer escrita por uma pessoa real, não por um robô
-- Varie o vocabulário e a estrutura das frases
-"""
+{contexto_resumido}"""
 
         try:
-            # Chamar LLM via TessClient
-            response = self.tess.generate(
-                prompt=prompt,
-                max_tokens=300,
-                temperature=0.8  # Maior variação para mensagens mais naturais
+            # Executar LangChain chain
+            mensagem = self.message_chain.run(
+                nome=nome,
+                sentimento=sentimento,
+                risco=risco,
+                tom=tom,
+                objetivo=objetivo,
+                contexto=contexto_completo
             )
             
-            mensagem = response.strip()
-            print(f"✅ Mensagem LLM gerada (tom: {tom})")
-            return mensagem
+            print(f"✅ Mensagem LLM gerada via LangChain (tom: {tom})")
+            return mensagem.strip()
             
         except Exception as e:
-            print(f"⚠️ Erro ao gerar mensagem via LLM: {e}")
+            print(f"⚠️ Erro ao gerar mensagem via LangChain: {e}")
             print("📝 Usando fallback para template padrão")
             return self._generate_fallback_message(nome, sentimento, risco)
     
