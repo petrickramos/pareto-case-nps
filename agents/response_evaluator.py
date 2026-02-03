@@ -1,16 +1,53 @@
 """
 Agente Avaliador de Resposta
 Responsável por classificar respostas NPS e extrair insights
+
+MIGRADO PARA LANGCHAIN: Usa TessLLM wrapper para orquestração via LangChain
 """
 
 from typing import Dict, Any, Optional
-from tess_client import TessClient
+from langchain.prompts import PromptTemplate
+from langchain.chains import LLMChain
+from agents.llm.tess_llm import TessLLM
 
 
 class ResponseEvaluatorAgent:
     def __init__(self):
-        self.tess = TessClient()
+        # Usar TessLLM via LangChain
+        self.llm = TessLLM(temperature=0.7, max_tokens=150)
         self.agent_id = "response-evaluator"
+        
+        # Prompt template para resumo executivo
+        self.summary_prompt = PromptTemplate(
+            input_variables=["score", "categoria", "emoji", "sentimento", "feedback", "temas"],
+            template="""Você é um analista de experiência do cliente especializado em NPS.
+
+DADOS DA AVALIAÇÃO:
+- Score NPS: {score}/10
+- Categoria: {categoria}
+- Sentimento detectado: {sentimento}
+- Feedback textual: "{feedback}"
+- Temas identificados: {temas}
+
+TAREFA:
+Crie um resumo executivo CONCISO, ESPECÍFICO e ACIONÁVEL desta avaliação NPS.
+
+FORMATO OBRIGATÓRIO:
+{emoji} [Classificação] - [Insight principal baseado no feedback]. [Ação sugerida específica].
+
+DIRETRIZES:
+- Máximo 2 linhas
+- Seja ESPECÍFICO, não genérico
+- Mencione detalhes do feedback se houver
+- Sugira ação CLARA e ACIONÁVEL
+- Use linguagem executiva e direta
+- NÃO repita informações óbvias
+
+IMPORTANTE: Retorne APENAS o resumo, sem explicações."""
+        )
+        
+        # Criar chain
+        self.summary_chain = LLMChain(llm=self.llm, prompt=self.summary_prompt)
     
     def evaluate(self, nps_score: int, feedback_text: str = "", context: Dict = None) -> Dict[str, Any]:
         """
@@ -229,9 +266,9 @@ class ResponseEvaluatorAgent:
     
     def _generate_summary(self, score: int, classification: Dict, insights: Dict, feedback_text: str = "", context: Optional[Dict] = None) -> str:
         """
-        Gera resumo executivo da avaliação usando LLM
+        Gera resumo executivo da avaliação usando LangChain
         
-        Substitui templates hardcoded por geração dinâmica e acionável
+        Usa TessLLM via LangChain chain para geração estruturada
         """
         
         categoria = classification["categoria"]
@@ -239,62 +276,22 @@ class ResponseEvaluatorAgent:
         sentimento = insights.get("sentimento_detectado", "AUSENTE")
         temas = insights.get("temas", [])
         
-        # Enriquecer contexto se disponível
-        contexto_cliente = ""
-        if context:
-            cliente = context.get("cliente", {})
-            metricas = context.get("metricas", {})
-            contexto_cliente = f"""
-- Cliente: {cliente.get('nome', 'N/A')}
-- Valor total: R$ {metricas.get('valor_total', 0):,.2f}
-- Tempo como cliente: {cliente.get('tempo_como_cliente', 'N/A')}"""
-        
-        # Prompt LLM
-        prompt = f"""Você é um analista de experiência do cliente especializado em NPS.
-
-DADOS DA AVALIAÇÃO:
-- Score NPS: {score}/10
-- Categoria: {categoria}
-- Sentimento detectado: {sentimento}
-- Feedback textual: "{feedback_text if feedback_text else 'Sem feedback textual'}"
-- Temas identificados: {', '.join(temas) if temas else 'Nenhum'}
-{contexto_cliente}
-
-TAREFA:
-Crie um resumo executivo CONCISO, ESPECÍFICO e ACIONÁVEL desta avaliação NPS.
-
-FORMATO OBRIGATÓRIO:
-{emoji} [Classificação] - [Insight principal baseado no feedback]. [Ação sugerida específica].
-
-DIRETRIZES:
-- Máximo 2 linhas
-- Seja ESPECÍFICO, não genérico
-- Mencione detalhes do feedback se houver
-- Sugira ação CLARA e ACIONÁVEL
-- Use linguagem executiva e direta
-- NÃO repita informações óbvias (ex: "Cliente PROMOTOR está satisfeito")
-
-EXEMPLOS DE BONS RESUMOS:
-- 🤩 Cliente PROMOTOR - Extremamente satisfeito com a consultoria estratégica e agilidade da equipe. Candidato ideal para case de sucesso e programa de indicações.
-- 😐 Cliente NEUTRO - Satisfação moderada, menciona lentidão no suporte técnico. Priorizar follow-up em 48h para entender pontos de melhoria específicos.
-- 😞 Cliente DETRATOR - Frustrado com atrasos recorrentes na implementação do projeto X. URGENTE: CS deve contatar em 24h com plano de recuperação e compensação.
-
-IMPORTANTE: Retorne APENAS o resumo, sem explicações."""
-
         try:
-            # Chamar LLM via TessClient
-            response = self.tess.generate(
-                prompt=prompt,
-                max_tokens=150,
-                temperature=0.7  # Balanceamento entre criatividade e consistência
+            # Executar LangChain chain
+            resumo = self.summary_chain.run(
+                score=score,
+                categoria=categoria,
+                emoji=emoji,
+                sentimento=sentimento,
+                feedback=feedback_text if feedback_text else "Sem feedback textual",
+                temas=", ".join(temas) if temas else "Nenhum"
             )
             
-            resumo = response.strip()
-            print(f"✅ Resumo executivo LLM gerado")
-            return resumo
+            print(f"✅ Resumo executivo gerado via LangChain")
+            return resumo.strip()
             
         except Exception as e:
-            print(f"⚠️ Erro ao gerar resumo via LLM: {e}")
+            print(f"⚠️ Erro ao gerar resumo via LangChain: {e}")
             print("📝 Usando fallback para template padrão")
             return self._generate_fallback_summary(score, categoria, emoji, sentimento, temas)
     
