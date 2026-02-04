@@ -161,6 +161,16 @@ class ConversationManager:
     async def _handle_idle(self, chat_id: str, text: str) -> str:
         """Estado IDLE: Aguardando início da conversa"""
         
+        # PRIORIDADE 1: Verificar se já tem nota NPS direto (sem precisar /start)
+        score = self._extract_score(text)
+        if score is not None:
+            # Usuário já deu nota direto! Processar como WAITING_SCORE
+            print(f"✅ Nota detectada direto no IDLE: {score}/10")
+            self.transition_state(chat_id, ConversationState.WAITING_SCORE)
+            # Processar a mensagem como se estivesse em WAITING_SCORE
+            return await self._handle_waiting_score(chat_id, text)
+        
+        # PRIORIDADE 2: Comando /start explícito
         if text.strip().lower().startswith('/start'):
             # Mensagem de boas-vindas personalizada
             self.transition_state(chat_id, ConversationState.WAITING_SCORE)
@@ -172,33 +182,39 @@ class ConversationManager:
                 "Em uma escala de 0 a 10, quanto você recomendaria nossos serviços? "
                 "Pode me contar também o motivo da sua nota."
             )
+        
+        # PRIORIDADE 3: Mensagem casual/off-script
         else:
-            # Usuário enviou mensagem sem /start - usar IA para responder
+            # Usuário enviou mensagem sem /start e sem nota
+            # Usar IA para responder naturalmente
             from agents.llm.tess_llm import TessLLM
             
             try:
                 llm = TessLLM(temperature=0.8, max_tokens=150)
-                prompt = f"""Você é a Tess, assistente da Pareto. Um usuário disse: \"{text}\"
+                prompt = f"""Você é a Tess, assistente da Pareto. Um usuário disse: "{text}"
 
-Responda de forma natural e depois convide para iniciar a pesquisa de satisfação com /start.
+Responda de forma natural e depois peça para ele avaliar a Pareto de 0 a 10.
 
 Diretrizes:
 - Seja natural e conversacional
 - Sem emojis
 - Responda a pergunta/mensagem deles primeiro
-- Depois convide para /start
+- Depois peça: "Em uma escala de 0 a 10, como você avaliaria sua experiência com a Pareto?"
 - Máximo 2-3 linhas
 
 Resposta:"""
                 response = llm.invoke(prompt)
+                
+                # Manter no estado IDLE (não transicionar ainda)
+                # Usuário pode responder com nota na próxima mensagem
                 return response.strip()
             except:
                 # Fallback
                 return (
-                    "Olá! Para começarmos a pesquisa de satisfação, "
-                    "digite /start e vou te fazer uma pergunta rápida sobre "
-                    "sua experiência com a Pareto."
+                    "Olá! Gostaria de saber como foi sua experiência com a Pareto. "
+                    "Em uma escala de 0 a 10, quanto você nos recomendaria?"
                 )
+    
     
     @traceable(name="Extract NPS Score")
     async def _handle_waiting_score(self, chat_id: str, text: str) -> str:
