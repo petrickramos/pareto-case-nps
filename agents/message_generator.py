@@ -52,7 +52,8 @@ IMPORTANTE:
         # Criar chain
         self.message_chain = LLMChain(llm=self.llm, prompt=self.message_prompt)
     
-    def generate(self, context: Dict[str, Any], analysis: Dict[str, Any]) -> Dict[str, str]:
+    @traceable(name="Message Generation")
+    def generate(self, context: Dict[str, Any], analysis: Dict[str, Any]) -> Dict[str, Any]:
         """
         Gera mensagem personalizada de pesquisa NPS
         
@@ -64,7 +65,6 @@ IMPORTANTE:
             Dict com mensagem completa e metadata
         """
         print("✍️ Gerando mensagem personalizada de NPS...")
-        from supabase_client import supabase_client
         import time
         
         start_time = time.time()

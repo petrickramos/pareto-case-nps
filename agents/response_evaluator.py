@@ -49,7 +49,8 @@ IMPORTANTE: Retorne APENAS o resumo, sem explicações."""
         # Criar chain
         self.summary_chain = LLMChain(llm=self.llm, prompt=self.summary_prompt)
     
-    def evaluate(self, nps_score: int, feedback_text: str = "", context: Dict = None) -> Dict[str, Any]:
+    @traceable(name="NPS Evaluation")
+    def evaluate(self, nps_score: int, feedback_text: str = "", context: Dict[str, Any] = None) -> Dict[str, Any]:
         """
         Avalia a resposta de NPS do cliente
         
@@ -62,9 +63,6 @@ IMPORTANTE: Retorne APENAS o resumo, sem explicações."""
             Dict com classificação e insights
         """
         print(f"📊 Avaliando resposta NPS: {nps_score}/10...")
-        from supabase_client import supabase_client
-        import time
-        from datetime import datetime
         
         start_time = time.time()
         

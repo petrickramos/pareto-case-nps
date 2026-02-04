@@ -21,7 +21,10 @@ from agents.sentiment_analyzer import SentimentAnalyzerAgent
 from agents.message_generator import MessageGeneratorAgent
 from agents.response_evaluator import ResponseEvaluatorAgent
 from agents.empathetic_response import EmpatheticResponseGenerator
+from agents.empathetic_response import EmpatheticResponseGenerator
 from hubspot_client import HubSpotClient
+from telegram_client import TelegramClient
+from fastapi import Request, Header
 
 # Criar aplicação FastAPI
 app = FastAPI(
@@ -45,7 +48,9 @@ sentiment_analyzer = SentimentAnalyzerAgent()
 message_generator = MessageGeneratorAgent()
 response_evaluator = ResponseEvaluatorAgent()
 empathetic_generator = EmpatheticResponseGenerator()
+empathetic_generator = EmpatheticResponseGenerator()
 hubspot_client = HubSpotClient()
+telegram_client = TelegramClient()
 
 # Modelos Pydantic
 class EvaluateRequest(BaseModel):
@@ -272,6 +277,74 @@ async def run_full_nps_flow(contact_id: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro no fluxo completo: {str(e)}")
+
+
+@app.post("/telegram/webhook")
+async def telegram_webhook(request: Request, x_telegram_bot_api_secret_token: str = Header(None)):
+    """Recebe updates do Telegram"""
+    # 1. Validar Token Secreto (Segurança)
+    expected_secret = os.getenv("TELEGRAM_WEBHOOK_SECRET")
+    if expected_secret and x_telegram_bot_api_secret_token != expected_secret:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+    
+    try:
+        data = await request.json()
+        message = data.get("message", {})
+        
+        if not message:
+            return {"status": "ignored", "reason": "no_message"}
+            
+        chat_id = message.get("chat", {}).get("id")
+        text = message.get("text", "")
+        
+        if not chat_id or not text:
+            return {"status": "ignored", "reason": "no_text"}
+
+        print(f"📩 Telegram Message de {chat_id}: {text}")
+        
+        # 2. Lógica de Resposta
+        if text.startswith("/start"):
+            welcome_msg = (
+                "👋 Olá! Sou o assistente de qualidade da Pareto.\n\n"
+                "Estou aqui para registrar sua avaliação de NPS.\n"
+                "Por favor, nos dê uma nota de 0 a 10 sobre nosso atendimento recent e conte o motivo."
+            )
+            await telegram_client.send_message(chat_id, welcome_msg)
+            return {"status": "ok"}
+            
+        # 3. Tentar extrair nota (Score)
+        import re
+        score_match = re.search(r'\b(10|[0-9])\b', text)
+        
+        if score_match:
+            score = int(score_match.group(1))
+            feedback = text
+            
+            # Executar Avaliação (ResponseEvaluator)
+            evaluation = response_evaluator.evaluate(
+                nps_score=score,
+                feedback_text=feedback,
+                context={"source": "telegram", "contact_id": str(chat_id)}
+            )
+            
+            # Gerar Resposta Empática
+            response_text = empathetic_generator.generate_response(score, feedback)
+            
+            # Enviar resposta
+            await telegram_client.send_message(chat_id, response_text)
+            
+        else:
+            # Não achou nota -> Pede esclarecimento (ou usa SentimentAnalyzer como fallback)
+            # Por simplicidade, vamos pedir a nota
+            msg = "Não identifiquei uma nota na sua mensagem. Poderia me dar uma nota de 0 a 10?"
+            await telegram_client.send_message(chat_id, msg)
+        
+        return {"status": "processed"}
+        
+    except Exception as e:
+        print(f"❌ Erro no Webhook Telegram: {e}")
+        # Não retornar erro 500 para o Telegram não ficar tentando re-entregar
+        return {"status": "error", "message": str(e)}
 
 
 if __name__ == "__main__":

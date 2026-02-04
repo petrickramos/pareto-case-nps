@@ -8,3 +8,6 @@ pydantic>=2.5.0
 # LangChain for LLM orchestration
 langchain==0.1.0
 langchain-core==0.1.10
+langchain-openai==0.0.5
+langsmith>=0.0.80
+httpx>=0.25.0

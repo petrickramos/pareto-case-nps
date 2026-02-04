@@ -14,6 +14,7 @@ class SentimentAnalyzerAgent:
         # ID do agente de análise de sentimento na Tess (ajustar conforme disponível)
         self.agent_id = "sentiment-analyzer"  # Placeholder, ajustar após verificar na Tess
     
+    @traceable(name="Sentiment Analysis")
     def analyze(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """
         Analisa o contexto do cliente e retorna sentimento + riscos
@@ -25,6 +26,8 @@ class SentimentAnalyzerAgent:
             Dict com análise de sentimento e riscos
         """
         print("🧠 Analisando sentimento e riscos do cliente...")
+        from datetime import datetime
+        from langsmith import traceable
         from supabase_client import supabase_client
         import time
         
