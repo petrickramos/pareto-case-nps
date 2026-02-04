@@ -23,7 +23,7 @@ class SupabaseClient:
             return
             
         url = os.getenv("SUPABASE_URL")
-        key = os.getenv("SUPABASE_KEY")
+        key = os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_ANON_KEY")
         
         if not url or not key:
             print("⚠️ AVISO: Credenciais Supabase não encontradas no .env")

@@ -6,7 +6,7 @@ MIGRADO PARA LANGCHAIN: Usa TessLLM wrapper para orquestração via LangChain
 """
 
 from typing import Dict, Any
-from langchain.prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate
 from langchain.chains import LLMChain
 from agents.llm.tess_llm import TessLLM
 from agents.llm.tess_llm import TessLLM
