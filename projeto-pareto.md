@@ -144,6 +144,12 @@ Configurações para deploy serverless:
   - `HUBSPOT_API_URL`: Configurado como `http://localhost:4010` para validação de build (⚠️ Nota: Mock local não acessível externamente em prod)
 - **Documentação**: Atualizado `DEPLOY.md` com guia passo-a-passo para Supabase
 
+### Arquitetura 2.0 (04/02/2026) - ✅ CONCLUÍDO
+Migração de Low-Code (Make/N8N) para Code-First (Python):
+- **Telegram Bot Nativo**: Implementado endpoint `/telegram/webhook` em FastAPI. Eliminada dependência do N8N.
+- **Auditoria Avançada (LangSmith)**: Integrado tracing (`@traceable`) em todos os agentes para debugging granular.
+- **Simplificação**: Infraestrutura reduzida para Vercel + Supabase + Telegram (sem N8N intermediário).
+
 ### Integração Tess AI (Em Andamento)
 - ✅ Agentes criados na plataforma Tess
   - `petrick-agente-de-analise-de-sentimento-4HjFZi`
