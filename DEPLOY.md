@@ -82,7 +82,7 @@ https://api.telegram.org/bot7266298448:AAGqX38TT6A1643cZO07zbiEFQB6x21nlQ4/setWe
 Adicione as variáveis na Vercel para ativar o rastreamento:
 - `LANGCHAIN_TRACING_V2`: `true`
 - `LANGCHAIN_ENDPOINT`: `https://api.smith.langchain.com`
-- `LANGCHAIN_API_KEY`: (Sua chave do LangSmith)
+- `LANGCHAIN_API_KEY`: (Cole sua chave lsv2_... aqui)
 - `LANGCHAIN_PROJECT`: `pareto-nps-case`
 - `TELEGRAM_BOT_TOKEN`: `7266298448:AAGqX38TT6A1643cZO07zbiEFQB6x21nlQ4`
 - `TELEGRAM_WEBHOOK_SECRET`: `pareto-secret-123`
