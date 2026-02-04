@@ -4,8 +4,8 @@ Permite usar TessClient com toda a infraestrutura do LangChain
 """
 
 from typing import Any, List, Optional, Dict
-from langchain.llms.base import LLM
-from langchain.callbacks.manager import CallbackManagerForLLMRun
+from langchain_core.language_models.llms import LLM
+from langchain_core.callbacks.manager import CallbackManagerForLLMRun
 from tess_client import TessClient
 import logging
 

@@ -7,7 +7,7 @@ MIGRADO PARA LANGCHAIN: Usa TessLLM wrapper para orquestração via LangChain
 
 from typing import Dict, Any
 from langchain_core.prompts import PromptTemplate
-from langchain.chains import LLMChain
+# from langchain.chains import LLMChain (Removed for core compatibility)
 from agents.llm.tess_llm import TessLLM
 from agents.llm.tess_llm import TessLLM
 from datetime import datetime
@@ -53,8 +53,8 @@ IMPORTANTE:
 """
         )
         
-        # Criar chain
-        self.message_chain = LLMChain(llm=self.llm, prompt=self.message_prompt)
+        # Criar chain (Removed for LCEL compatibility)
+        # self.message_chain = LLMChain(llm=self.llm, prompt=self.message_prompt)
     
     @traceable(name="Message Generation")
     def generate(self, context: Dict[str, Any], analysis: Dict[str, Any]) -> Dict[str, Any]:
@@ -166,8 +166,8 @@ IMPORTANTE:
 {contexto_resumido}"""
 
         try:
-            # Executar LangChain chain
-            mensagem = self.message_chain.run(
+            # Executar LangChain chain (Manual formatting for Core compatibility)
+            prompt_value = self.message_prompt.format_prompt(
                 nome=nome,
                 sentimento=sentimento,
                 risco=risco,
@@ -175,6 +175,7 @@ IMPORTANTE:
                 objetivo=objetivo,
                 contexto=contexto_completo
             )
+            mensagem = self.llm.invoke(prompt_value.to_string())
             
             print(f"✅ Mensagem LLM gerada via LangChain (tom: {tom})")
             return mensagem.strip()

@@ -7,8 +7,7 @@ MIGRADO PARA LANGCHAIN: Usa TessLLM wrapper para orquestração via LangChain
 
 from typing import Dict, Any, Optional
 from langchain_core.prompts import PromptTemplate
-from langchain.chains import LLMChain
-from langchain.chains import LLMChain
+# from langchain.chains import LLMChain (Removed for core compatibility)
 from agents.llm.tess_llm import TessLLM
 import time
 from datetime import datetime
@@ -51,8 +50,8 @@ DIRETRIZES:
 IMPORTANTE: Retorne APENAS o resumo, sem explicações."""
         )
         
-        # Criar chain
-        self.summary_chain = LLMChain(llm=self.llm, prompt=self.summary_prompt)
+        # Criar chain (Removed for LCEL compatibility)
+        # self.summary_chain = LLMChain(llm=self.llm, prompt=self.summary_prompt)
     
     @traceable(name="NPS Evaluation")
     def evaluate(self, nps_score: int, feedback_text: str = "", context: Dict[str, Any] = None) -> Dict[str, Any]:
@@ -314,8 +313,8 @@ IMPORTANTE: Retorne APENAS o resumo, sem explicações."""
         temas = insights.get("temas", [])
         
         try:
-            # Executar LangChain chain
-            resumo = self.summary_chain.run(
+            # Executar LangChain chain (Manual formatting for Core compatibility)
+            prompt_value = self.summary_prompt.format_prompt(
                 score=score,
                 categoria=categoria,
                 emoji=emoji,
@@ -323,6 +322,7 @@ IMPORTANTE: Retorne APENAS o resumo, sem explicações."""
                 feedback=feedback_text if feedback_text else "Sem feedback textual",
                 temas=", ".join(temas) if temas else "Nenhum"
             )
+            resumo = self.llm.invoke(prompt_value.to_string())
             
             print(f"✅ Resumo executivo gerado via LangChain")
             return resumo.strip()
