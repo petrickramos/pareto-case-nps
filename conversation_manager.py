@@ -166,19 +166,39 @@ class ConversationManager:
             self.transition_state(chat_id, ConversationState.WAITING_SCORE)
             
             return (
-                "👋 Olá! Sou o assistente de qualidade da Pareto.\n\n"
+                "Olá! Sou a Tess, assistente de qualidade da Pareto.\n\n"
                 "Queremos saber como foi sua experiência recente conosco. "
-                "Sua opinião é muito importante!\n\n"
+                "Sua opinião é muito importante para nós.\n\n"
                 "Em uma escala de 0 a 10, quanto você recomendaria nossos serviços? "
-                "Pode me contar também o motivo da sua nota. 😊"
+                "Pode me contar também o motivo da sua nota."
             )
         else:
-            # Usuário enviou mensagem sem /start
-            # Usar IA para responder de forma natural
-            return (
-                "Oi! 👋 Para começarmos, digite /start e vou te fazer "
-                "uma pergunta rápida sobre sua experiência com a Pareto!"
-            )
+            # Usuário enviou mensagem sem /start - usar IA para responder
+            from agents.llm.tess_llm import TessLLM
+            
+            try:
+                llm = TessLLM(temperature=0.8, max_tokens=150)
+                prompt = f"""Você é a Tess, assistente da Pareto. Um usuário disse: \"{text}\"
+
+Responda de forma natural e depois convide para iniciar a pesquisa de satisfação com /start.
+
+Diretrizes:
+- Seja natural e conversacional
+- Sem emojis
+- Responda a pergunta/mensagem deles primeiro
+- Depois convide para /start
+- Máximo 2-3 linhas
+
+Resposta:"""
+                response = llm.invoke(prompt)
+                return response.strip()
+            except:
+                # Fallback
+                return (
+                    "Olá! Para começarmos a pesquisa de satisfação, "
+                    "digite /start e vou te fazer uma pergunta rápida sobre "
+                    "sua experiência com a Pareto."
+                )
     
     @traceable(name="Extract NPS Score")
     async def _handle_waiting_score(self, chat_id: str, text: str) -> str:
@@ -209,12 +229,36 @@ class ConversationManager:
             
             return response
         else:
-            # Não encontrou nota - pedir esclarecimento de forma inteligente
-            return (
-                "Hmm, não consegui identificar uma nota de 0 a 10 na sua mensagem. 🤔\n\n"
-                "Pode me dizer quanto você nos daria? Por exemplo: "
-                "\"Dou nota 8\" ou simplesmente \"8\"."
-            )
+            # Não encontrou nota - usar IA para responder e pedir nota
+            from agents.llm.tess_llm import TessLLM
+            
+            try:
+                llm = TessLLM(temperature=0.8, max_tokens=150)
+                prompt = f"""Você é a Tess, assistente da Pareto. Está coletando avaliação NPS.
+
+Usuário disse: \"{text}\"
+
+Você precisa de uma nota de 0 a 10, mas o usuário não deu.
+
+Responda:
+1. Primeiro, responda a mensagem deles de forma natural
+2. Depois, peça a nota de 0 a 10
+
+Diretrizes:
+- Sem emojis
+- Natural e conversacional
+- Máximo 2-3 linhas
+
+Resposta:"""
+                response = llm.invoke(prompt)
+                return response.strip()
+            except:
+                # Fallback
+                return (
+                    "Não consegui identificar uma nota de 0 a 10 na sua mensagem. "
+                    "Pode me dizer quanto você nos daria? Por exemplo: "
+                    "'Dou nota 8' ou simplesmente '8'."
+                )
     
     async def _handle_waiting_feedback(self, chat_id: str, text: str) -> str:
         """Estado WAITING_FEEDBACK: Coletar justificativa adicional"""
@@ -224,7 +268,7 @@ class ConversationManager:
         session.feedback_text += f" {text}"
         
         # Gerar resposta de agradecimento
-        response = "Muito obrigado pelo seu feedback detalhado! Vamos usar isso para melhorar. 🙏"
+        response = "Muito obrigado pelo seu feedback detalhado! Vamos usar isso para melhorar nossos serviços."
         
         self.transition_state(chat_id, ConversationState.COMPLETED)
         return response
@@ -233,7 +277,7 @@ class ConversationManager:
         """Estado COMPLETED: Conversa já finalizada"""
         
         return (
-            "Obrigado! Sua avaliação já foi registrada. ✅\n\n"
+            "Obrigado! Sua avaliação já foi registrada.\n\n"
             "Se quiser fazer uma nova avaliação, digite /start novamente."
         )
     
