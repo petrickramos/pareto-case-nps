@@ -64,54 +64,46 @@ vercel env add TESS_API_KEY
 vercel --prod
 ```
 
-## Passo 3: Atualizar N8N
+## Passo 3: Configurar Webhook do Telegram (CRÍTICO!)
 
-1. Acesse seu workflow N8N
-2. Encontre o nó **HTTP Request** que chama `/nps/evaluate`
-3. Atualize a URL:
-   - **Antes:** `https://pareto-nps.railway.app/nps/evaluate`
-   - **Depois:** `https://SEU-PROJETO.vercel.app/nps/evaluate`
+Para que o bot funcione, você precisa "avisar" ao Telegram para enviar as mensagens para seu deploy na Vercel.
 
-4. Salve e publique o workflow
+1.  Pegue sua URL da Vercel (ex: `https://pareto-nps.vercel.app`)
+2.  Substitua na URL abaixo junto com seu Token do Bot:
 
-## Passo 4: Testar
+```
+https://api.telegram.org/bot7266298448:AAGqX38TT6A1643cZO07zbiEFQB6x21nlQ4/setWebhook?url=https://[SUA-APP].vercel.app/telegram/webhook&secret_token=pareto-secret-123
+```
 
-1. Envie uma mensagem para o bot do Telegram
-2. Responda com uma nota (ex: `8`)
-3. Verifique se recebeu a resposta empática
-4. Confira no Supabase se o registro foi salvo:
-   ```sql
-   SELECT * FROM nps_respostas ORDER BY created_at DESC LIMIT 5;
-   ```
+3.  Cole essa URL no seu navegador e dê Enter.
+4.  Você deve ver: `{"ok":true, "result":true, "description":"Webhook was set"}`.
+
+## Passo 4: Configurar LangSmith (Auditoria)
+Adicione as variáveis na Vercel para ativar o rastreamento:
+- `LANGCHAIN_TRACING_V2`: `true`
+- `LANGCHAIN_ENDPOINT`: `https://api.smith.langchain.com`
+- `LANGCHAIN_API_KEY`: (Sua chave do LangSmith)
+- `LANGCHAIN_PROJECT`: `pareto-nps-case`
+- `TELEGRAM_BOT_TOKEN`: `7266298448:AAGqX38TT6A1643cZO07zbiEFQB6x21nlQ4`
+- `TELEGRAM_WEBHOOK_SECRET`: `pareto-secret-123`
+
+## Passo 5: Testar
+1. Abra o bot no Telegram: `t.me/pareto_nps_case_mba_bot`
+2. Envie `/start` e veja se ele responde!
+
 
 ## ✅ Checklist
-
-- [ ] Supabase criado e schema executado
-- [ ] Connection String copiada
+- [ ] Supabase configurado
 - [ ] Código no GitHub
-- [ ] Deploy no Vercel concluído
-- [ ] Variáveis de ambiente configuradas
-- [ ] N8N atualizado com nova URL
-- [ ] Teste realizado com sucesso
-
-## 🆘 Troubleshooting
-
-### Erro: "Module not found"
-- Verifique se `requirements.txt` está completo
-- Rode: `vercel --prod` novamente
-
-### Erro: "Database connection failed"
-- Verifique se a Connection String está correta
-- Certifique-se de substituir `[YOUR-PASSWORD]`
-
-### Erro: "Function timeout"
-- Vercel tem limite de 10s para Hobby Plan
-- Se necessário, otimize chamadas LLM
+- [ ] Deploy Vercel (com novas variáveis)
+- [ ] Webhook Telegram Configurado
+- [ ] LangSmith Configurado
+- [ ] Bot respondendo no Telegram!
 
 ## 💰 Custos
-
-- **Supabase:** GRÁTIS (500MB, 50.000 requisições/mês)
-- **Vercel:** GRÁTIS (100GB bandwidth, ilimitado para hobby)
-- **N8N Cloud:** GRÁTIS (5.000 execuções/mês)
+- **Supabase:** GRÁTIS
+- **Vercel:** GRÁTIS
+- **LangSmith:** GRÁTIS (plano Developer)
+- **Telegram:** GRÁTIS
 
 **Total: R$ 0,00/mês** 🎉
