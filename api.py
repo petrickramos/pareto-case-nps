@@ -21,10 +21,10 @@ from agents.sentiment_analyzer import SentimentAnalyzerAgent
 from agents.message_generator import MessageGeneratorAgent
 from agents.response_evaluator import ResponseEvaluatorAgent
 from agents.empathetic_response import EmpatheticResponseGenerator
-from agents.empathetic_response import EmpatheticResponseGenerator
 from hubspot_client import HubSpotClient
 from telegram_client import TelegramClient
 from fastapi import Request, Header
+from langsmith import traceable
 
 # Criar aplicação FastAPI
 app = FastAPI(
@@ -280,8 +280,9 @@ async def run_full_nps_flow(contact_id: str):
 
 
 @app.post("/telegram/webhook")
+@traceable(name="Telegram Webhook Handler")
 async def telegram_webhook(request: Request, x_telegram_bot_api_secret_token: str = Header(None)):
-    """Recebe updates do Telegram"""
+    """Recebe updates do Telegram e processa via ConversationManager"""
     # 1. Validar Token Secreto (Segurança)
     expected_secret = os.getenv("TELEGRAM_WEBHOOK_SECRET")
     if expected_secret and x_telegram_bot_api_secret_token != expected_secret:
@@ -302,47 +303,27 @@ async def telegram_webhook(request: Request, x_telegram_bot_api_secret_token: st
 
         print(f"📩 Telegram Message de {chat_id}: {text}")
         
-        # 2. Lógica de Resposta
-        if text.startswith("/start"):
-            welcome_msg = (
-                "👋 Olá! Sou o assistente de qualidade da Pareto.\n\n"
-                "Estou aqui para registrar sua avaliação de NPS.\n"
-                "Por favor, nos dê uma nota de 0 a 10 sobre nosso atendimento recent e conte o motivo."
-            )
-            await telegram_client.send_message(chat_id, welcome_msg)
-            return {"status": "ok"}
-            
-        # 3. Tentar extrair nota (Score)
-        import re
-        score_match = re.search(r'\b(10|[0-9])\b', text)
+        # 2. Usar ConversationManager para processar mensagem
+        from conversation_manager import conversation_manager
         
-        if score_match:
-            score = int(score_match.group(1))
-            feedback = text
-            
-            # Executar Avaliação (ResponseEvaluator)
-            evaluation = response_evaluator.evaluate(
-                nps_score=score,
-                feedback_text=feedback,
-                context={"source": "telegram", "contact_id": str(chat_id)}
-            )
-            
-            # Gerar Resposta Empática
-            response_text = empathetic_generator.generate_response(score, feedback)
-            
-            # Enviar resposta
+        response_text = await conversation_manager.process_message(
+            chat_id=str(chat_id),
+            text=text
+        )
+        
+        # 3. Enviar resposta (se houver)
+        if response_text:
             await telegram_client.send_message(chat_id, response_text)
-            
+            print(f"✅ Resposta enviada para {chat_id}")
         else:
-            # Não achou nota -> Pede esclarecimento (ou usa SentimentAnalyzer como fallback)
-            # Por simplicidade, vamos pedir a nota
-            msg = "Não identifiquei uma nota na sua mensagem. Poderia me dar uma nota de 0 a 10?"
-            await telegram_client.send_message(chat_id, msg)
+            print(f"⏸️ Sem resposta (modo manual ou outro motivo)")
         
         return {"status": "processed"}
         
     except Exception as e:
         print(f"❌ Erro no Webhook Telegram: {e}")
+        import traceback
+        traceback.print_exc()
         # Não retornar erro 500 para o Telegram não ficar tentando re-entregar
         return {"status": "error", "message": str(e)}
 

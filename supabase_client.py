@@ -89,6 +89,42 @@ class SupabaseClient:
         except Exception as e:
             print(f"⚠️ Erro ao atualizar campanha no Supabase: {e}")
             return None
+    
+    def log_conversation_message(self, chat_id, message_text, sender, 
+                                 conversation_state=None, nps_score=None, 
+                                 sentiment=None, metadata=None):
+        """
+        Registra uma mensagem de conversa no banco de dados
+        
+        Args:
+            chat_id: ID do chat (Telegram chat_id)
+            message_text: Texto da mensagem
+            sender: 'user', 'bot', 'manager', ou 'system'
+            conversation_state: Estado atual da conversa
+            nps_score: Score NPS se disponível
+            sentiment: Sentimento detectado
+            metadata: Dados adicionais em JSON
+        """
+        if not self.client:
+            return None
+        
+        try:
+            data = {
+                "chat_id": str(chat_id),
+                "message_text": message_text,
+                "sender": sender,
+                "conversation_state": conversation_state,
+                "nps_score": nps_score,
+                "sentiment": sentiment,
+                "metadata": metadata if isinstance(metadata, dict) else {}
+            }
+            
+            result = self.client.table("conversation_messages").insert(data).execute()
+            return result
+            
+        except Exception as e:
+            print(f"⚠️ Erro ao logar mensagem de conversa: {e}")
+            return None
 
 # Instância global para facilitar importação
 supabase_client = SupabaseClient()

@@ -1,9 +1,9 @@
 """
 Gerador de Respostas Empáticas Inteligentes para NPS
-Usa TessClient para criar respostas personalizadas baseadas no feedback do cliente
+Usa TessLLM para criar respostas personalizadas baseadas no feedback do cliente
 """
 
-from typing import Optional
+from typing import Optional, Dict, Any, List
 import os
 import sys
 from pathlib import Path
@@ -11,31 +11,72 @@ from pathlib import Path
 # Adicionar diretório pai ao path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from tess_client import TessClient
+from agents.llm.tess_llm import TessLLM
+from langchain_core.prompts import PromptTemplate
+from langsmith import traceable
 
 
 class EmpatheticResponseGenerator:
-    """Gera respostas empáticas INTELIGENTES baseadas no feedback do cliente"""
+    """Gera respostas empáticas INTELIGENTES usando Tess AI"""
     
     def __init__(self):
-        """Inicializa o gerador com TessClient"""
-        self.client = TessClient()
-        # ID do agente de geração de mensagens (você pode criar um agente específico na Tess)
-        self.agent_id = os.getenv("TESS_EMPATHY_AGENT_ID", "default")
+        """Inicializa o gerador com TessLLM"""
+        self.llm = TessLLM(temperature=0.9, max_tokens=250)
+        
+        # Prompt template para respostas empáticas
+        self.prompt_template = PromptTemplate(
+            input_variables=["score", "categoria", "feedback", "sentimento", "contexto"],
+            template="""Você é um assistente empático da Pareto, especializado em atendimento ao cliente.
+
+CONTEXTO DA AVALIAÇÃO:
+- Score NPS: {score}/10
+- Categoria: {categoria}
+- Sentimento detectado: {sentimento}
+- Feedback do cliente: "{feedback}"
+{contexto}
+
+TAREFA:
+Escreva uma resposta NATURAL, EMPÁTICA e PERSONALIZADA para o cliente.
+
+DIRETRIZES:
+- Seja genuíno e humano, não robótico
+- Reconheça especificamente o que o cliente mencionou
+- Use tom conversacional (pode usar emojis sutis: 😊 🙏 💙)
+- Seja breve (máximo 3-4 linhas)
+- Se score baixo: mostre empatia e vontade de resolver
+- Se score médio: agradeça e pergunte como melhorar
+- Se score alto: celebre e agradeça
+
+IMPORTANTE:
+- NÃO use frases corporativas genéricas
+- NÃO repita exatamente o que o cliente disse
+- Responda como se fosse uma pessoa real conversando
+
+Resposta:"""
+        )
     
-    def generate_response(self, score: int, feedback_text: str = "") -> str:
+    @traceable(name="Empathetic Response Generation")
+    def generate_response(
+        self, 
+        score: int, 
+        feedback_text: str = "",
+        conversation_history: List[Dict] = None,
+        sentiment: Dict[str, Any] = None
+    ) -> str:
         """
         Gera resposta empática INTELIGENTE baseada na nota E no feedback
         
         Args:
             score: Nota NPS (0-10)
             feedback_text: Feedback textual do cliente
+            conversation_history: Histórico de mensagens (opcional)
+            sentiment: Resultado da análise de sentimento (opcional)
             
         Returns:
             Mensagem empática personalizada e contextualizada
         """
         
-        # Classificar categoria
+        # Classificar categoria NPS
         if score <= 6:
             categoria = "DETRATOR"
         elif score <= 8:
@@ -43,9 +84,36 @@ class EmpatheticResponseGenerator:
         else:
             categoria = "PROMOTOR"
         
-        # Por enquanto, usar fallback inteligente baseado no feedback
-        # TODO: Quando tiver agente específico na Tess, usar execute_agent
-        return self._intelligent_fallback(score, categoria, feedback_text)
+        # Extrair sentimento
+        sentimento = "NEUTRO"
+        if sentiment:
+            sentimento = sentiment.get("sentimento_geral", "NEUTRO")
+        
+        # Construir contexto adicional
+        contexto_extra = ""
+        if conversation_history and len(conversation_history) > 2:
+            contexto_extra = f"\n- Mensagens trocadas: {len(conversation_history)}"
+        
+        try:
+            # Gerar prompt formatado
+            prompt_value = self.prompt_template.format_prompt(
+                score=score,
+                categoria=categoria,
+                feedback=feedback_text or "(sem feedback textual)",
+                sentimento=sentimento,
+                contexto=contexto_extra
+            )
+            
+            # Chamar TessLLM
+            response = self.llm.invoke(prompt_value.to_string())
+            
+            print(f"✅ Resposta empática gerada via TessLLM (score: {score}, categoria: {categoria})")
+            return response.strip()
+            
+        except Exception as e:
+            print(f"⚠️ Erro ao gerar resposta via TessLLM: {e}")
+            print("📝 Usando fallback inteligente")
+            return self._intelligent_fallback(score, categoria, feedback_text)
     
     def _intelligent_fallback(self, score: int, categoria: str, feedback_text: str) -> str:
         """
