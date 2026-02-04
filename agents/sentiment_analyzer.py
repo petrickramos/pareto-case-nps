@@ -5,7 +5,11 @@ Responsável por analisar o contexto do cliente e identificar sentimento/riscos
 
 import json
 from typing import Dict, Any
+import time
+from datetime import datetime
+from langsmith import traceable
 from tess_client import TessClient
+from supabase_client import supabase_client
 
 
 class SentimentAnalyzerAgent:
@@ -26,10 +30,6 @@ class SentimentAnalyzerAgent:
             Dict com análise de sentimento e riscos
         """
         print("🧠 Analisando sentimento e riscos do cliente...")
-        from datetime import datetime
-        from langsmith import traceable
-        from supabase_client import supabase_client
-        import time
         
         start_time = time.time()
         success = True

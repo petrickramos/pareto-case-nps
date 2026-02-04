@@ -8,7 +8,12 @@ MIGRADO PARA LANGCHAIN: Usa TessLLM wrapper para orquestração via LangChain
 from typing import Dict, Any, Optional
 from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
+from langchain.chains import LLMChain
 from agents.llm.tess_llm import TessLLM
+import time
+from datetime import datetime
+from langsmith import traceable
+from supabase_client import supabase_client
 
 
 class ResponseEvaluatorAgent:
