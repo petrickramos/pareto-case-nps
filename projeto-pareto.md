@@ -135,7 +135,14 @@ Implementado sistema completo de auditoria com Supabase:
 - **Integração**: Todos os agentes (`SentimentAnalyzer`, `MessageGenerator`, `ResponseEvaluator`) agora logam automaticamente suas operações
 - **Testes**: Script `test_supabase_integration.py` validou o fluxo completo de escrita no banco
 
-**Próximo Passo**: Configurar e validar deploy na Vercel
+**Próximo Passo**: Monitorar ambiente de produção
+
+### Deploy na Vercel (04/02/2026) - 🚀 EM ANDAMENTO
+Configurações para deploy serverless:
+- **Environment Variables**:
+  - `SUPABASE_URL` / `SUPABASE_KEY`: Credenciais de produção
+  - `HUBSPOT_API_URL`: Configurado como `http://localhost:4010` para validação de build (⚠️ Nota: Mock local não acessível externamente em prod)
+- **Documentação**: Atualizado `DEPLOY.md` com guia passo-a-passopara Supabase
 
 ### Integração Tess AI (Em Andamento)
 - ✅ Agentes criados na plataforma Tess
