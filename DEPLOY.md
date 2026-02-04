@@ -11,31 +11,30 @@
 
 4. Aguarde ~2 minutos para o projeto ser criado
 
-5. Vá em **SQL Editor** e execute o arquivo `schema.sql`:
+5. Vá em **SQL Editor** e execute o arquivo `supabase_schema.sql`:
    ```sql
-   -- Cole o conteúdo de schema.sql aqui
+   -- Cole o conteúdo de supabase_schema.sql aqui
    ```
 
-6. Copie a **Connection String**:
-   - Vá em **Settings** → **Database**
-   - Copie a **Connection String** (formato: `postgresql://...`)
-   - Substitua `[YOUR-PASSWORD]` pela senha que você criou
+6. Copie as chaves API:
+   - Vá em **Project Settings** → **API**
+   - Copie a **URL** (`SUPABASE_URL`)
+   - Copie a chave **anon public** (`SUPABASE_KEY`)
 
 ## Passo 2: Deploy no Vercel
 
 ### Opção A: Via GitHub (Recomendado)
 
-1. Faça push do código para o GitHub:
-   ```bash
-   git remote add origin https://github.com/SEU-USUARIO/pareto-case-nps.git
-   git push -u origin feature/langchain-migration
-   ```
+1. Certifique-se que o código está no GitHub (já está!)
 
 2. Acesse: https://vercel.com/new
-3. Importe o repositório do GitHub
+3. Importe o repositório `pareto-case-nps`
 4. Configure as variáveis de ambiente:
-   - `DATABASE_URL`: Cole a Connection String do Supabase
-   - `TESS_API_KEY`: Sua chave da Tess AI (se necessário)
+   - `SUPABASE_URL`: Cole a URL do projeto
+   - `SUPABASE_KEY`: Cole a chave anon public
+   - `TESS_API_KEY`: Sua chave da Tess AI
+   - `HUBSPOT_API_URL`: Use `http://localhost:4010` (Nota: em produção real, precisaria de um mock público)
+   - `HUBSPOT_API_KEY`: `pat-na1-123`
 
 5. Clique em **Deploy**
 
@@ -53,12 +52,13 @@ npm i -g vercel
 vercel login
 
 # Deploy
-cd pareto-case-nps
+cd pareto-case/langchain
 vercel
 
 # Adicionar variáveis de ambiente
-vercel env add DATABASE_URL
-# Cole a Connection String do Supabase
+vercel env add SUPABASE_URL
+vercel env add SUPABASE_KEY
+vercel env add TESS_API_KEY
 
 # Deploy em produção
 vercel --prod
