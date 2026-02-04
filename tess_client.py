@@ -38,6 +38,7 @@ class TessClient:
             print(f"Erro ao obter agente {agent_id}: {e}")
             return None
     
+    
     def execute_agent(self, agent_id, input_data):
         """Executa um agente com dados de entrada"""
         url = f"{self.base_url}/agents/{agent_id}/execute"
@@ -49,6 +50,66 @@ class TessClient:
         except requests.exceptions.RequestException as e:
             print(f"Erro ao executar agente {agent_id}: {e}")
             return None
+    
+    
+    def generate(self, prompt, max_tokens=300, temperature=0.7, agent_id=None, system_prompt=None):
+        """
+        Gera texto usando a API da Tess AI
+        Método compatível com LangChain TessLLM wrapper
+        
+        Usa o endpoint OpenAI-compatible com formato correto para agentes workspace:
+        https://docs.tess.im/api/endpoints/agents/execute_openai_compatible/
+        
+        Args:
+            prompt: Texto de entrada para geração
+            max_tokens: Número máximo de tokens na resposta (não usado no formato atual)
+            temperature: Temperatura para geração (0.0 a 1.0) (não usado no formato atual)
+            agent_id: ID do agente a usar (opcional, usa agente padrão se não especificado)
+            system_prompt: Prompt do sistema (opcional)
+            
+        Returns:
+            Texto gerado pela API
+        """
+        # Usar agente padrão se não especificado
+        if not agent_id:
+            agent_id = os.getenv("TESS_DEFAULT_AGENT_ID", "39004")  # Agente de sentimento
+        
+        # Usar endpoint OpenAI-compatible
+        url = f"{self.base_url}/agents/{agent_id}/openai/chat/completions"
+        
+        # Montar mensagens
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+        
+        # Payload correto para agentes workspace Tess
+        payload = {
+            "messages": messages,
+            "tools": "no-tools",  # STRING obrigatória: 'no-tools', 'internet', 'deep_analysis', etc.
+            "stream": False
+        }
+        
+        try:
+            response = requests.post(url, headers=self.headers, json=payload, timeout=30)
+            response.raise_for_status()
+            result = response.json()
+            
+            # Extrair texto da resposta (formato OpenAI)
+            # Resposta contém: choices[0].message.content
+            if isinstance(result, dict) and 'choices' in result:
+                if len(result['choices']) > 0:
+                    content = result['choices'][0].get('message', {}).get('content', '')
+                    if content:
+                        return str(content).strip()
+            
+            # Fallback se não conseguir extrair content
+            return str(result)
+            
+        except requests.exceptions.RequestException as e:
+            print(f"Erro ao gerar texto com Tess AI: {e}")
+            # Fallback: retornar mensagem padrão
+            return f"Olá! Como posso ajudar você hoje?"
 
 
 if __name__ == "__main__":

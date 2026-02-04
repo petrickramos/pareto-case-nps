@@ -63,13 +63,6 @@ class TessLLM(LLM):
             Exception: Se houver erro na geração
         """
         try:
-            # Callbacks do LangChain (se disponíveis)
-            if run_manager:
-                run_manager.on_llm_start(
-                    serialized={"name": self._llm_type},
-                    prompts=[prompt]
-                )
-            
             # Chamar TessClient com parâmetros configurados
             response = self.tess_client.generate(
                 prompt=prompt,
@@ -77,17 +70,11 @@ class TessLLM(LLM):
                 temperature=kwargs.get("temperature", self.temperature)
             )
             
-            # Callback de sucesso
-            if run_manager:
-                run_manager.on_llm_end(response=response)
-            
             logger.debug("TessLLM generated %d characters", len(response))
             return response.strip()
             
         except Exception as e:
             logger.error("TessLLM error: %s", str(e))
-            if run_manager:
-                run_manager.on_llm_error(e)
             raise
     
     @property
