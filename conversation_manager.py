@@ -12,6 +12,7 @@ from langsmith import traceable
 from agents.sentiment_analyzer import SentimentAnalyzerAgent
 from agents.empathetic_response import EmpatheticResponseGenerator
 from agents.response_evaluator import ResponseEvaluatorAgent
+from services.cliente_service import cliente_service
 from supabase_client import supabase_client
 
 
@@ -37,6 +38,10 @@ class ConversationSession:
         self.created_at = datetime.now()
         self.updated_at = datetime.now()
         self.manual_mode = False
+        
+        # NOVO: Dados do cliente (HubSpot Mock)
+        self.cliente_identificado: bool = False
+        self.dados_cliente: Optional[Dict[str, Any]] = None
     
     def to_dict(self) -> Dict[str, Any]:
         """Serializa sessão para dict"""
@@ -49,7 +54,9 @@ class ConversationSession:
             "messages_count": len(self.messages_history),
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
-            "manual_mode": self.manual_mode
+            "manual_mode": self.manual_mode,
+            "cliente_identificado": self.cliente_identificado,
+            "cliente_nome": self.dados_cliente.get("firstname") if self.dados_cliente else None
         }
 
 
@@ -67,6 +74,10 @@ class ConversationManager:
         self.sentiment_analyzer = SentimentAnalyzerAgent()
         self.empathetic_generator = EmpatheticResponseGenerator()
         self.response_evaluator = ResponseEvaluatorAgent()
+        
+        # Serviço de clientes
+        self.cliente_service = cliente_service
+
     
     def get_session(self, chat_id: str) -> ConversationSession:
         """Recupera ou cria uma sessão de conversa"""
@@ -158,8 +169,65 @@ class ConversationManager:
         
         return response
     
-    async def _handle_idle(self, chat_id: str, text: str) -> str:
+    async def _tentar_identificar_cliente(self, chat_id: str, username: Optional[str] = None) -> Optional[Dict]:
+        """
+        Tenta identificar cliente no HubSpot Mock
+        
+        Estratégia:
+        1. Buscar no cache por chat_id
+        2. Buscar no HubSpot por username (como email)
+        3. Fallback: retornar None
+        
+        Args:
+            chat_id: ID do chat Telegram
+            username: Username do Telegram (opcional)
+            
+        Returns:
+            Dados do cliente ou None
+        """
+        session = self.get_session(chat_id)
+        
+        # Já identificado?
+        if session.cliente_identificado:
+            return session.dados_cliente
+        
+        # Tentar buscar por chat_id no cache
+        cliente = self.cliente_service.buscar_por_chat_id(chat_id)
+        if cliente:
+            print(f"✅ Cliente identificado por chat_id: {chat_id}")
+            return cliente
+        
+        # Tentar buscar por username (assumir que é email)
+        if username:
+            # Tentar como email direto
+            email = f"{username}@exemplo.com" if "@" not in username else username
+            cliente = self.cliente_service.buscar_por_email(email)
+            
+            if cliente:
+                print(f"✅ Cliente identificado por email: {email}")
+                # Coletar contexto completo
+                contact_id = cliente.get("id")
+                if contact_id:
+                    contexto = self.cliente_service.coletar_contexto(contact_id)
+                    cliente["contexto"] = contexto
+                
+                return cliente
+        
+        print(f"⚠️ Cliente não identificado (chat_id: {chat_id}, username: {username})")
+        return None
+    
+    async def _handle_idle(self, chat_id: str, text: str, username: Optional[str] = None) -> str:
         """Estado IDLE: Aguardando início da conversa"""
+        
+        session = self.get_session(chat_id)
+        
+        # Tentar identificar cliente (se ainda não identificado)
+        if not session.cliente_identificado:
+            cliente = await self._tentar_identificar_cliente(chat_id, username)
+            if cliente:
+                session.cliente_identificado = True
+                session.dados_cliente = cliente
+                print(f"✅ Cliente identificado: {cliente.get('properties', {}).get('firstname', 'N/A')}")
         
         # PRIORIDADE 1: Verificar se já tem nota NPS direto (sem precisar /start)
         score = self._extract_score(text)
@@ -170,43 +238,50 @@ class ConversationManager:
             # Processar a mensagem como se estivesse em WAITING_SCORE
             return await self._handle_waiting_score(chat_id, text)
         
-        # PRIORIDADE 2: Comando /start explícito
-        if text.strip().lower().startswith('/start'):
-            # Mensagem de boas-vindas personalizada
+        # PRIORIDADE 2: Comando /start ou primeira mensagem
+        if text.strip().lower().startswith('/start') or not session.messages_history:
             self.transition_state(chat_id, ConversationState.WAITING_SCORE)
-            
-            return (
-                "Olá! Sou a Tess, assistente de qualidade da Pareto.\n\n"
-                "Queremos saber como foi sua experiência recente conosco. "
-                "Sua opinião é muito importante para nós.\n\n"
-                "Em uma escala de 0 a 10, quanto você recomendaria nossos serviços? "
-                "Pode me contar também o motivo da sua nota."
-            )
+            return self._gerar_saudacao(session)
         
         # PRIORIDADE 3: Mensagem casual/off-script
         else:
-            # Usuário enviou mensagem sem /start e sem nota
             # Usar IA para responder naturalmente
             from agents.llm.tess_llm import TessLLM
             
             try:
-                llm = TessLLM(temperature=0.8, max_tokens=150)
-                prompt = f"""Você é a Tess, assistente da Pareto. Um usuário disse: "{text}"
+                llm = TessLLM(temperature=0.7, max_tokens=150)
+                
+                # Prompt personalizado se tiver nome
+                nome = ""
+                if session.dados_cliente:
+                    props = session.dados_cliente.get("properties", {})
+                    nome = props.get("firstname", "")
+                
+                if nome:
+                    prompt = f"""Você é a Tess, assistente da Pareto. O cliente {nome} disse: "{text}"
 
 Responda de forma natural e depois peça para ele avaliar a Pareto de 0 a 10.
 
 Diretrizes:
 - Seja natural e conversacional
 - Sem emojis
-- Responda a pergunta/mensagem deles primeiro
-- Depois peça: "Em uma escala de 0 a 10, como você avaliaria sua experiência com a Pareto?"
+- Use o nome {nome} na resposta
 - Máximo 2-3 linhas
 
 Resposta:"""
-                response = llm.invoke(prompt)
+                else:
+                    prompt = f"""Você é a Tess, assistente da Pareto. Um usuário disse: "{text}"
+
+Responda de forma natural e depois peça para ele avaliar a Pareto de 0 a 10.
+
+Diretrizes:
+- Seja natural e conversacional
+- Sem emojis
+- Máximo 2-3 linhas
+
+Resposta:"""
                 
-                # Manter no estado IDLE (não transicionar ainda)
-                # Usuário pode responder com nota na próxima mensagem
+                response = llm.invoke(prompt)
                 return response.strip()
             except:
                 # Fallback
@@ -215,6 +290,70 @@ Resposta:"""
                     "Em uma escala de 0 a 10, quanto você nos recomendaria?"
                 )
     
+    def _gerar_saudacao(self, session: 'ConversationSession') -> str:
+        """Gera saudação personalizada COM ou SEM contexto do cliente"""
+        from agents.llm.tess_llm import TessLLM
+        
+        llm = TessLLM(temperature=0.7, max_tokens=200)
+        
+        if session.cliente_identificado and session.dados_cliente:
+            # Saudação COM Contexto
+            props = session.dados_cliente.get("properties", {})
+            nome = props.get("firstname", "")
+            sobrenome = props.get("lastname", "")
+            
+            # Produtos (se disponível no contexto)
+            produtos = []
+            contexto = session.dados_cliente.get("contexto", {})
+            if contexto:
+                deals = contexto.get("deals", [])
+                # Extrair nomes de produtos dos deals (simplificado)
+                produtos = ["serviços da Pareto"]  # Placeholder
+            
+            prompt = f"""Você é a Tess, assistente de qualidade da Pareto.
+
+DADOS DO CLIENTE:
+- Nome: {nome} {sobrenome}
+
+TAREFA:
+Escreva uma saudação calorosa e personalizada:
+1. Cumprimente pelo nome
+2. Diga que quer saber sobre a experiência dele
+3. Peça uma nota de 0 a 10
+
+DIRETRIZES:
+- Tom amigável e profissional
+- Sem emojis
+- Máximo 4 linhas
+- Seja natural, não mencione todos os dados
+
+Resposta:"""
+        else:
+            # Saudação SEM Contexto
+            prompt = """Você é a Tess, assistente de qualidade da Pareto.
+
+TAREFA:
+Escreva uma saudação calorosa:
+1. Se apresente
+2. Explique que quer saber sobre a experiência
+3. Peça uma nota de 0 a 10
+
+DIRETRIZES:
+- Tom acolhedor
+- Sem emojis
+- Máximo 4 linhas
+
+Resposta:"""
+        
+        try:
+            return llm.invoke(prompt).strip()
+        except:
+            # Fallback
+            return (
+                "Olá! Sou a Tess, assistente de qualidade da Pareto.\n\n"
+                "Queremos saber como foi sua experiência recente conosco. "
+                "Em uma escala de 0 a 10, quanto você recomendaria nossos serviços?"
+            )
     
     @traceable(name="Extract NPS Score")
     async def _handle_waiting_score(self, chat_id: str, text: str) -> str:
@@ -341,12 +480,15 @@ Resposta:"""
             else:
                 return {"sentimento_geral": "POSITIVO", "nivel_satisfacao": score}
     
-    @traceable(name="Empathetic Response Generation")
+    @traceable(name="Generate Empathetic Response")
     async def _generate_empathetic_response(
-        self, chat_id: str, score: int, feedback: str, sentiment: Dict
+        self, 
+        chat_id: str, 
+        score: int, 
+        feedback: str,
+        sentiment: Dict[str, Any]
     ) -> str:
-        """Gera resposta empática usando IA"""
-        
+        """Gera resposta empática usando TessLLM"""
         session = self.get_session(chat_id)
         
         try:
@@ -355,8 +497,11 @@ Resposta:"""
                 score=score,
                 feedback_text=feedback,
                 conversation_history=session.messages_history,
-                sentiment=sentiment
+                sentiment=sentiment,
+                cliente_dados=session.dados_cliente  # NOVO: Passar dados do cliente
             )
+            
+            print(f"✅ Resposta empática gerada: {response[:50]}...")
             return response
         except Exception as e:
             print(f"⚠️ Erro ao gerar resposta empática: {e}")

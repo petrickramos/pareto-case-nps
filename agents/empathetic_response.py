@@ -63,7 +63,8 @@ Resposta:"""
         score: int, 
         feedback_text: str = "",
         conversation_history: List[Dict] = None,
-        sentiment: Dict[str, Any] = None
+        sentiment: Dict[str, Any] = None,
+        cliente_dados: Optional[Dict[str, Any]] = None
     ) -> str:
         """
         Gera resposta empática INTELIGENTE baseada na nota E no feedback
@@ -73,12 +74,13 @@ Resposta:"""
             feedback_text: Feedback textual do cliente
             conversation_history: Histórico de mensagens (opcional)
             sentiment: Resultado da análise de sentimento (opcional)
+            cliente_dados: Dados do cliente do HubSpot (opcional)
             
         Returns:
             Mensagem empática personalizada e contextualizada
         """
         
-        # Classificar categoria NPS
+        # Determinar categoria NPS
         if score <= 6:
             categoria = "DETRATOR"
         elif score <= 8:
@@ -87,37 +89,84 @@ Resposta:"""
             categoria = "PROMOTOR"
         
         # Extrair sentimento
-        sentimento = "NEUTRO"
+        sentimento_str = "NEUTRO"
         if sentiment:
-            sentimento = sentiment.get("sentimento_geral", "NEUTRO")
+            sentimento_str = sentiment.get("sentimento", "NEUTRO")
         
-        # Construir contexto adicional
-        contexto_extra = ""
-        if conversation_history and len(conversation_history) > 2:
-            contexto_extra = f"\n- Mensagens trocadas: {len(conversation_history)}"
+        # Preparar contexto do cliente
+        contexto_cliente = ""
+        nome = ""
+        
+        if cliente_dados:
+            props = cliente_dados.get("properties", {})
+            nome = props.get("firstname", "")
+            
+            if nome:
+                contexto_cliente = f"\n- Nome do cliente: {nome}"
+        
+        # Construir prompt personalizado
+        if nome:
+            # Versão COM nome
+            prompt = f"""Você é a Tess, assistente empática da Pareto.
+
+CONTEXTO DA AVALIAÇÃO:
+- Cliente: {nome}
+- Score NPS: {score}/10
+- Categoria: {categoria}
+- Sentimento: {sentimento_str}
+- Feedback: "{feedback_text}"
+
+TAREFA:
+Escreva uma resposta NATURAL e EMPÁTICA para {nome}.
+
+DIRETRIZES:
+- Use o nome {nome} na resposta
+- Seja genuína e humana
+- SEM EMOJIS
+- Máximo 3-4 linhas
+
+DETRATOR (0-6): Acolha e peça desculpas
+NEUTRO (7-8): Agradeça e pergunte como melhorar
+PROMOTOR (9-10): Celebre e agradeça
+
+Resposta:"""
+        else:
+            # Versão SEM nome
+            prompt = f"""Você é a Tess, assistente empática da Pareto.
+
+CONTEXTO DA AVALIAÇÃO:
+- Score NPS: {score}/10
+- Categoria: {categoria}
+- Sentimento: {sentimento_str}
+- Feedback: "{feedback_text}"
+
+TAREFA:
+Escreva uma resposta NATURAL e EMPÁTICA.
+
+DIRETRIZES:
+- Seja genuína e humana
+- SEM EMOJIS
+- Máximo 3-4 linhas
+
+DETRATOR (0-6): Acolha e peça desculpas
+NEUTRO (7-8): Agradeça e pergunte como melhorar
+PROMOTOR (9-10): Celebre e agradeça
+
+Resposta:"""
         
         try:
-            # Gerar prompt formatado
-            prompt_value = self.prompt_template.format_prompt(
-                score=score,
-                categoria=categoria,
-                feedback=feedback_text or "(sem feedback textual)",
-                sentimento=sentimento,
-                contexto=contexto_extra
-            )
-            
-            # Chamar TessLLM
-            response = self.llm.invoke(prompt_value.to_string())
+            # Gerar resposta com TessLLM
+            response = self.llm.invoke(prompt)
             
             print(f"✅ Resposta empática gerada via TessLLM (score: {score}, categoria: {categoria})")
             return response.strip()
             
         except Exception as e:
-            print(f"⚠️ Erro ao gerar resposta via TessLLM: {e}")
-            print("📝 Usando fallback inteligente")
-            return self._intelligent_fallback(score, categoria, feedback_text)
+            print(f"❌ Erro ao gerar resposta empática: {e}")
+            # Fallback para resposta básica
+            return self._fallback_response(score, feedback_text, nome)
     
-    def _intelligent_fallback(self, score: int, categoria: str, feedback_text: str) -> str:
+    def _fallback_response(self, score: int, feedback: str, nome: str = "") -> str:
         """
         Resposta inteligente baseada em análise do feedback
         Mais sofisticada que templates fixos
