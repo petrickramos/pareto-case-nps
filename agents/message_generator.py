@@ -9,6 +9,7 @@ from typing import Dict, Any
 from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
 from agents.llm.tess_llm import TessLLM
+from datetime import datetime
 
 
 class MessageGeneratorAgent:
@@ -63,13 +64,23 @@ IMPORTANTE:
             Dict com mensagem completa e metadata
         """
         print("✍️ Gerando mensagem personalizada de NPS...")
+        from supabase_client import supabase_client
+        import time
+        
+        start_time = time.time()
         
         cliente = context.get("cliente", {})
+        contact_id = str(cliente.get("id", "unknown"))
         sentimento = analysis.get("sentimento_geral", "NEUTRO")
         risco = analysis.get("risco_churn", "MEDIO")
         
         # Usar LLM para gerar mensagem personalizada
-        mensagem = self._generate_llm_message(context, analysis)
+        try:
+            mensagem = self._generate_llm_message(context, analysis)
+        except Exception as e:
+            # Fallback seguro caso algo muito errado aconteça no wrapper
+            print(f"Erro grave na geração LLM: {e}")
+            mensagem = self._generate_fallback_message(cliente.get("nome", "Cliente"), sentimento, risco)
         
         result = {
             "tipo": "NPS",
@@ -84,7 +95,36 @@ IMPORTANTE:
             }
         }
         
+        processing_time = (time.time() - start_time) * 1000
         print(f"✅ Mensagem gerada: Tom {result['tom']}")
+        
+        # 1. Logar interação de geração de mensagem
+        supabase_client.log_interaction(
+            contact_id=contact_id,
+            interaction_type="message_generation",
+            agent_name="MessageGeneratorAgent",
+            input_data={"analysis": analysis},
+            output_data=result,
+            success=True,
+            processing_time_ms=processing_time
+        )
+        
+        # 2. Atualizar tabela de campanhas
+        # Registramos o início da campanha com os dados que já temos
+        supabase_client.update_campaign(
+            contact_id=contact_id,
+            update_data={
+                "contact_name": cliente.get("nome"),
+                "contact_email": cliente.get("email"),
+                "sentiment_score": sentimento,
+                "risk_level": risco,
+                "message_sent": True, # Assumimos enviado após geração neste fluxo
+                "message_subject": result["assunto"],
+                "message_content": mensagem,
+                "message_tone": result["tom"],
+                "campaign_date": datetime.now().isoformat()
+            }
+        )
         
         return result
 

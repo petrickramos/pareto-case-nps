@@ -62,6 +62,11 @@ IMPORTANTE: Retorne APENAS o resumo, sem explicações."""
             Dict com classificação e insights
         """
         print(f"📊 Avaliando resposta NPS: {nps_score}/10...")
+        from supabase_client import supabase_client
+        import time
+        from datetime import datetime
+        
+        start_time = time.time()
         
         # Classificar NPS
         classification = self._classify_nps(nps_score)
@@ -82,7 +87,36 @@ IMPORTANTE: Retorne APENAS o resumo, sem explicações."""
             "resumo_executivo": self._generate_summary(nps_score, classification, insights, feedback_text, context)
         }
         
+        processing_time = (time.time() - start_time) * 1000
         print(f"✅ Avaliação: {classification['categoria']} | Prioridade: {result['prioridade']}")
+        
+        # 1. Logar interação de avaliação
+        contact_id = "unknown"
+        if context and context.get("cliente"):
+            contact_id = str(context["cliente"].get("id", "unknown"))
+            
+        supabase_client.log_interaction(
+            contact_id=contact_id,
+            interaction_type="nps_response_evaluation",
+            agent_name="ResponseEvaluatorAgent",
+            input_data={"nps_score": nps_score, "feedback": feedback_text},
+            output_data=result,
+            success=True,
+            processing_time_ms=processing_time
+        )
+        
+        # 2. Atualizar tabela de campanhas com a resposta
+        # Só atualizamos se tivermos um contact_id válido
+        if contact_id != "unknown":
+            supabase_client.update_campaign(
+                contact_id=contact_id,
+                update_data={
+                    "nps_score": nps_score,
+                    "nps_feedback": feedback_text,
+                    "nps_category": classification['categoria'],
+                    "response_date": datetime.now().isoformat()
+                }
+            )
         
         return result
 

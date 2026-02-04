@@ -9,12 +9,12 @@
 - **API FastAPI**: Funcionando localmente
 - **Integração Tess AI**: Aguardando agentes ficarem públicos
 - **HubSpot Mock**: Rodando em `localhost:4010`
+- **Sistema de Auditoria**: Implementado `SupabaseClient` e integrado nos agentes
+- **Tabelas Supabase**: Criadas e testadas
+- **Logging de Interações**: Implementado
 
 ### ❌ Pendente
-- **Sistema de Auditoria**: Não implementado
 - **Deploy Vercel**: Não verificado se está configurado
-- **Tabelas Supabase**: Não criadas
-- **Logging de Interações**: Não implementado
 
 ## Requisitos do Projeto
 

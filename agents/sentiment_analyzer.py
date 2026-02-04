@@ -25,6 +25,13 @@ class SentimentAnalyzerAgent:
             Dict com análise de sentimento e riscos
         """
         print("🧠 Analisando sentimento e riscos do cliente...")
+        from supabase_client import supabase_client
+        import time
+        
+        start_time = time.time()
+        success = True
+        error_msg = None
+        analysis = {}
         
         # Construir prompt de análise
         prompt = self._build_analysis_prompt(context)
@@ -38,11 +45,29 @@ class SentimentAnalyzerAgent:
             else:
                 # Análise local fallback
                 analysis = self._local_analysis(context)
-        except:
+        except Exception as e:
             # Fallback para análise local
+            print(f"⚠️ Erro na análise remota: {e}. Usando fallback.")
             analysis = self._local_analysis(context)
+            # Mesmo usando fallback, queremos saber que deu erro na principal
+            # Mas marcamos success=True pois recuperamos com fallback. 
+            # O erro_msg fica registrado pra debug
+            error_msg = str(e)
         
+        processing_time = (time.time() - start_time) * 1000
         print(f"✅ Análise concluída: Sentimento {analysis.get('sentimento_geral', 'N/A')}")
+        
+        # Logar interação no Supabase
+        supabase_client.log_interaction(
+            contact_id=context.get("cliente", {}).get("id", "unknown"),
+            interaction_type="sentiment_analysis",
+            agent_name="SentimentAnalyzerAgent",
+            input_data={"context_summary": "Contexto completo do cliente", "prompt_len": len(prompt)},
+            output_data=analysis,
+            success=success,
+            error_message=error_msg,
+            processing_time_ms=processing_time
+        )
         
         return analysis
     
