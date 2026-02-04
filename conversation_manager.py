@@ -104,8 +104,8 @@ class ConversationManager:
             metadata={"transition": True}
         )
     
-    @traceable(name="NPS Conversation Flow")
-    async def process_message(self, chat_id: str, text: str) -> str:
+    @traceable(name="Process User Message")
+    async def process_message(self, chat_id: str, text: str, username: Optional[str] = None) -> str:
         """
         Processa mensagem do usuário baseado no estado atual
         Retorna resposta inteligente do bot
@@ -135,7 +135,7 @@ class ConversationManager:
         
         # Processar baseado no estado
         if session.state == ConversationState.IDLE:
-            response = await self._handle_idle(chat_id, text)
+            response = await self._handle_idle(chat_id, text, username)  # Passar username
         
         elif session.state == ConversationState.WAITING_SCORE:
             response = await self._handle_waiting_score(chat_id, text)
