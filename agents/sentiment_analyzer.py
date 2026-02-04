@@ -1,6 +1,7 @@
 """
 Agente Analisador de Sentimento
 Responsável por analisar o contexto do cliente e identificar sentimento/riscos
+Usa TessLLM para análise contextual
 """
 
 import json
@@ -8,15 +9,14 @@ from typing import Dict, Any
 import time
 from datetime import datetime
 from langsmith import traceable
-from tess_client import TessClient
+from agents.llm.tess_llm import TessLLM
 from supabase_client import supabase_client
 
 
 class SentimentAnalyzerAgent:
     def __init__(self):
-        self.tess = TessClient()
-        # ID do agente de análise de sentimento na Tess (ajustar conforme disponível)
-        self.agent_id = "sentiment-analyzer"  # Placeholder, ajustar após verificar na Tess
+        # Usar TessLLM para análise de sentimento
+        self.llm = TessLLM(temperature=0.7, max_tokens=300)
     
     @traceable(name="Sentiment Analysis")
     def analyze(self, context: Dict[str, Any]) -> Dict[str, Any]:
@@ -39,20 +39,24 @@ class SentimentAnalyzerAgent:
         # Construir prompt de análise
         prompt = self._build_analysis_prompt(context)
         
-        # Tentar usar Tess API se disponível, senão fazer análise local
+        # Usar TessLLM para análise
         try:
-            # Verificar se há agente específico na Tess
-            result = self.tess.execute_agent(self.agent_id, {"prompt": prompt})
-            if result:
-                analysis = result.get("response", {})
-            else:
-                # Análise local fallback
-                analysis = self._local_analysis(context)
+            response = self.llm.invoke(prompt)
+            
+            # Tentar parsear JSON da resposta
+            try:
+                analysis = json.loads(response)
+            except json.JSONDecodeError:
+                # Se não for JSON válido, fazer análise simples
+                print("⚠️ Resposta não é JSON, usando análise simplificada")
+                analysis = self._parse_text_analysis(response, context)
+            
+            print(f"✅ Análise concluída: Sentimento {analysis.get('sentimento_geral', 'NEUTRO')}")
+            
         except Exception as e:
-            # Fallback para análise local
-            print(f"⚠️ Erro na análise remota: {e}. Usando fallback.")
+            print(f"⚠️ Erro na análise via TessLLM: {e}")
+            # Fallback local
             analysis = self._local_analysis(context)
-            # Mesmo usando fallback, queremos saber que deu erro na principal
             # Mas marcamos success=True pois recuperamos com fallback. 
             # O erro_msg fica registrado pra debug
             error_msg = str(e)
@@ -118,6 +122,39 @@ Retorne um JSON com:
 }"""
         
         return prompt
+    
+    def _parse_text_analysis(self, text_response: str, context: Dict) -> Dict[str, Any]:
+        """Parse análise de texto quando não é JSON válido"""
+        
+        # Extrair sentimento do texto
+        text_lower = text_response.lower()
+        
+        if any(word in text_lower for word in ['positivo', 'satisfeito', 'feliz', 'bom']):
+            sentimento = "POSITIVO"
+            nivel = 8
+        elif any(word in text_lower for word in ['negativo', 'insatisfeito', 'ruim', 'problema']):
+            sentimento = "NEGATIVO"
+            nivel = 3
+        else:
+            sentimento = "NEUTRO"
+            nivel = 5
+        
+        # Extrair risco
+        if any(word in text_lower for word in ['alto risco', 'churn', 'cancelar']):
+            risco = "ALTO"
+        elif any(word in text_lower for word in ['médio risco', 'atenção']):
+            risco = "MEDIO"
+        else:
+            risco = "BAIXO"
+        
+        return {
+            "sentimento_geral": sentimento,
+            "nivel_satisfacao": nivel,
+            "risco_churn": risco,
+            "justificativa": text_response[:200],  # Primeiros 200 chars
+            "recomendacao": "Análise baseada em texto livre"
+        }
+    
     
     def _local_analysis(self, context: Dict) -> Dict[str, Any]:
         """Análise local de sentimento (fallback)"""
