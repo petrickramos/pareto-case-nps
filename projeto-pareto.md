@@ -137,12 +137,12 @@ Implementado sistema completo de auditoria com Supabase:
 
 **Próximo Passo**: Monitorar ambiente de produção
 
-### Deploy na Vercel (04/02/2026) - 🚀 EM ANDAMENTO
+### Deploy na Vercel (04/02/2026) - ✅ CONCLUÍDO
 Configurações para deploy serverless:
 - **Environment Variables**:
   - `SUPABASE_URL` / `SUPABASE_KEY`: Credenciais de produção
   - `HUBSPOT_API_URL`: Configurado como `http://localhost:4010` para validação de build (⚠️ Nota: Mock local não acessível externamente em prod)
-- **Documentação**: Atualizado `DEPLOY.md` com guia passo-a-passopara Supabase
+- **Documentação**: Atualizado `DEPLOY.md` com guia passo-a-passo para Supabase
 
 ### Integração Tess AI (Em Andamento)
 - ✅ Agentes criados na plataforma Tess
