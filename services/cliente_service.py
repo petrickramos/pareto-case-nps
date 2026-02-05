@@ -16,8 +16,9 @@ class ClienteService:
     """Serviço para buscar e gerenciar dados de clientes do HubSpot Mock"""
     
     def __init__(self):
-        self.hubspot_base = os.getenv("HUBSPOT_MOCK_URL", "http://localhost:8080")
-        self.hubspot_token = os.getenv("HUBSPOT_TOKEN", "pat-na1-123")
+        # Usar nomes de variáveis do .env existente
+        self.hubspot_base = os.getenv("HUBSPOT_API_URL", os.getenv("HUBSPOT_MOCK_URL", "http://localhost:8080"))
+        self.hubspot_token = os.getenv("HUBSPOT_API_KEY", os.getenv("HUBSPOT_TOKEN", "pat-na1-123"))
         self.headers = {
             "Authorization": f"Bearer {self.hubspot_token}",
             "Content-Type": "application/json"
