@@ -84,10 +84,15 @@ class TessClient:
         messages.append({"role": "user", "content": prompt})
         
         # Payload correto para agentes workspace Tess
+        # NOTA: API exige temperature (inteiro 0 ou 1 parece ser o aceito, floats quebrados dão erro 422)
+        safe_temp = 1 if temperature > 0.5 else 0
+        
         payload = {
             "messages": messages,
-            "tools": "no-tools",  # STRING obrigatória: 'no-tools', 'internet', 'deep_analysis', etc.
-            "stream": False
+            "tools": "no-tools",  # STRING obrigatória
+            "stream": False,
+            "temperature": safe_temp,
+            "max_tokens": max_tokens
         }
         
         try:
@@ -107,9 +112,18 @@ class TessClient:
             return str(result)
             
         except requests.exceptions.RequestException as e:
-            print(f"Erro ao gerar texto com Tess AI: {e}")
+            # Log detalhado para debug em produção
+            error_msg = f"Erro ao gerar texto com Tess AI: {e}"
+            print(error_msg)  # Stdout (logs Vercel)
+            
+            # Se tiver resposta HTTP, logar detalhes
+            if hasattr(e, 'response') and e.response is not None:
+                print(f"Status Code: {e.response.status_code}")
+                print(f"Response Body: {e.response.text[:500]}")
+            
             # Fallback: retornar mensagem padrão
             return f"Olá! Como posso ajudar você hoje?"
+
 
 
 if __name__ == "__main__":
