@@ -1,18 +1,21 @@
 :root {
-  color-scheme: light;
-  --bg: #f6f1e8;
-  --bg-ink: #1b1a17;
-  --bg-muted: #efe7dc;
-  --card: #ffffff;
-  --card-strong: #fefbf7;
-  --accent: #d05f2c;
-  --accent-strong: #b94b1e;
-  --accent-soft: rgba(208, 95, 44, 0.15);
-  --line: rgba(27, 26, 23, 0.1);
-  --muted: rgba(27, 26, 23, 0.6);
-  --shadow: 0 20px 50px rgba(18, 16, 12, 0.15);
-  --radius: 16px;
-  --radius-sm: 10px;
+  color-scheme: dark;
+  --bg: #0a0a0f;
+  --bg-ink: #ffffff;
+  --bg-muted: #121218;
+  --card: rgba(26, 26, 36, 0.6);
+  --card-strong: rgba(26, 26, 36, 0.8);
+  --accent: #8b5cf6;
+  --accent-strong: #7c3aed;
+  --accent-soft: rgba(139, 92, 246, 0.2);
+  --line: rgba(255, 255, 255, 0.08);
+  --muted: #a1a1aa;
+  --muted-strong: #71717a;
+  --shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+  --radius: 18px;
+  --radius-sm: 12px;
+  --gradient-brand: linear-gradient(135deg, #7c3aed 0%, #ec4899 55%, #f97316 100%);
+  --gradient-purple: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%);
 }
 
 * {
@@ -29,9 +32,20 @@ body {
 body {
   font-family: var(--font-body, "system-ui", sans-serif);
   color: var(--bg-ink);
-  background: radial-gradient(circle at top left, rgba(208, 95, 44, 0.12), transparent 45%),
-    radial-gradient(circle at 20% 60%, rgba(40, 60, 82, 0.1), transparent 40%),
-    linear-gradient(180deg, #fdfaf5 0%, #f2e8d9 100%);
+  background: var(--bg);
+  position: relative;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 20% 20%, rgba(124, 58, 237, 0.18) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 45% at 80% 65%, rgba(236, 72, 153, 0.16) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 40% at 50% 90%, rgba(59, 130, 246, 0.12) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
 }
 
 a {
@@ -43,6 +57,8 @@ main {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  position: relative;
+  z-index: 1;
 }
 
 .app-shell {
@@ -65,6 +81,8 @@ main {
   border-radius: var(--radius);
   border: 1px solid var(--line);
   box-shadow: var(--shadow);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
 .panel-header {
@@ -97,22 +115,22 @@ main {
   border-radius: 999px;
   font-size: 12px;
   font-weight: 600;
-  background: var(--bg-muted);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .badge.positive {
-  background: rgba(40, 167, 69, 0.15);
-  color: #1e6b34;
+  background: rgba(34, 197, 94, 0.18);
+  color: #86efac;
 }
 
 .badge.neutral {
-  background: rgba(255, 193, 7, 0.2);
-  color: #8a6d00;
+  background: rgba(250, 204, 21, 0.18);
+  color: #fde68a;
 }
 
 .badge.negative {
-  background: rgba(220, 53, 69, 0.15);
-  color: #8f1d2c;
+  background: rgba(248, 113, 113, 0.18);
+  color: #fecaca;
 }
 
 .list {
@@ -127,17 +145,18 @@ main {
   padding: 12px 14px;
   background: var(--card-strong);
   cursor: pointer;
-  transition: transform 0.2s ease, border-color 0.2s ease;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .list-item:hover {
-  border-color: rgba(208, 95, 44, 0.4);
+  border-color: rgba(139, 92, 246, 0.45);
   transform: translateY(-1px);
+  box-shadow: 0 12px 30px rgba(10, 10, 20, 0.35);
 }
 
 .list-item.active {
   border-color: var(--accent);
-  background: rgba(208, 95, 44, 0.08);
+  background: rgba(124, 58, 237, 0.15);
 }
 
 .meta-row {
@@ -151,6 +170,7 @@ main {
 
 .text-strong {
   font-weight: 600;
+  color: var(--bg-ink);
 }
 
 .input,
@@ -160,8 +180,44 @@ textarea {
   border-radius: 12px;
   padding: 10px 12px;
   font-family: inherit;
-  background: #fff;
+  background: rgba(18, 18, 24, 0.8);
+  color: var(--bg-ink);
   font-size: 14px;
+}
+
+.input-group {
+  margin-bottom: 20px;
+}
+
+.input-label {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 8px;
+}
+
+.input-field {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-family: inherit;
+  background: rgba(18, 18, 24, 0.8);
+  color: var(--bg-ink);
+  font-size: 15px;
+}
+
+.input-field::placeholder {
+  color: #52525b;
+}
+
+.input-field:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.18);
+  outline: none;
 }
 
 textarea {
@@ -169,15 +225,44 @@ textarea {
   resize: vertical;
 }
 
+.input::placeholder,
+textarea::placeholder {
+  color: #52525b;
+}
+
+.input:focus,
+textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.18);
+  outline: none;
+}
+
 .button {
   border: none;
-  background: var(--accent);
+  background: var(--gradient-brand);
   color: #fff;
   padding: 10px 16px;
   border-radius: 999px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn-login {
+  width: 100%;
+  padding: 12px 16px;
+  background: var(--gradient-purple);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn-login:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 30px rgba(124, 58, 237, 0.35);
 }
 
 .button.secondary {
@@ -187,13 +272,18 @@ textarea {
 }
 
 .button.secondary:hover {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: rgba(139, 92, 246, 0.6);
+  color: #e9d5ff;
 }
 
 .button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.button:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 30px rgba(124, 58, 237, 0.35);
 }
 
 .toolbar {
@@ -219,20 +309,20 @@ textarea {
   padding: 12px 14px;
   border-radius: 14px;
   margin-bottom: 12px;
-  background: #fff;
+  background: rgba(18, 18, 24, 0.85);
   border: 1px solid var(--line);
 }
 
 .message.bot {
-  background: rgba(40, 60, 82, 0.08);
+  background: rgba(59, 130, 246, 0.12);
 }
 
 .message.manager {
-  background: rgba(208, 95, 44, 0.08);
+  background: rgba(139, 92, 246, 0.16);
 }
 
 .message.user {
-  background: rgba(50, 140, 100, 0.1);
+  background: rgba(34, 197, 94, 0.12);
 }
 
 .login-shell {
@@ -243,20 +333,34 @@ textarea {
   border-radius: var(--radius);
   border: 1px solid var(--line);
   box-shadow: var(--shadow);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
 .login-title {
   font-family: var(--font-title, "system-ui", sans-serif);
   font-size: 24px;
   margin: 0 0 8px;
+  background: var(--gradient-purple);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
 }
 
 .login-subtitle {
   margin: 0 0 20px;
-  color: var(--muted);
+  color: var(--muted-strong);
 }
 
 .small-note {
   font-size: 12px;
   color: var(--muted);
+}
+
+.login-footer {
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+  margin-top: 20px;
 }

@@ -33,34 +33,36 @@ export default function LoginPanel() {
         Acesso reservado para gestores de qualidade.
       </p>
       <form onSubmit={handleLogin}>
-        <label className="text-strong">Email</label>
-        <input
-          className="input"
-          type="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          placeholder="gestor@pareto.com"
-          required
-        />
-        <div style={{ height: 12 }} />
-        <label className="text-strong">Senha</label>
-        <input
-          className="input"
-          type="password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          placeholder="••••••••"
-          required
-        />
+        <div className="input-group">
+          <label className="input-label">Email</label>
+          <input
+            className="input-field"
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="gestor@pareto.com"
+            required
+          />
+        </div>
+        <div className="input-group">
+          <label className="input-label">Senha</label>
+          <input
+            className="input-field"
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder="••••••••"
+            required
+          />
+        </div>
         {error && (
           <p style={{ color: "#b33", marginTop: 12 }}>{error}</p>
         )}
-        <div style={{ height: 16 }} />
-        <button className="button" type="submit" disabled={loading}>
+        <button className="btn-login" type="submit" disabled={loading}>
           {loading ? "Entrando..." : "Entrar"}
         </button>
       </form>
-      <p className="small-note" style={{ marginTop: 20 }}>
+      <p className="login-footer">
         Crie o usuário no Supabase Auth antes do primeiro acesso.
       </p>
     </section>
