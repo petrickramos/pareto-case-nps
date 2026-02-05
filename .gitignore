@@ -3,3 +3,10 @@ __pycache__/
 *.pyc
 .env
 .DS_Store
+node_modules/
+.next/
+out/
+*.log
+.vercel/
+.env.local
+.env.*.local
