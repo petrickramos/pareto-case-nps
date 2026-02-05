@@ -94,6 +94,19 @@ main {
   padding: 20px 24px;
 }
 
+.conversation-detail {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.conversation-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
 .panel-title {
   font-family: var(--font-title, "system-ui", sans-serif);
   font-size: 20px;
@@ -297,6 +310,11 @@ textarea:focus {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
+  min-height: 0;
+}
+
+.split > .panel {
+  min-height: 0;
 }
 
 @media (max-width: 1100px) {
