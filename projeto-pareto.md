@@ -180,3 +180,48 @@ python3 api.py
 - **Desenvolvedor**: Juliana Moraes Ferreira (Petrick)
 - **Instituição**: MBA AI Leader - Faculdade Mar Atlântico
 - **Projeto**: Case Pareto - Sistema NPS Multi-Agente
+
+---
+
+## ✅ Relatório de Validação Local (05/02/2026)
+
+### Configuração do Dashboard
+- Arquivo criado: `langchain/dashboard/.env.local` (não versionado)
+- Variáveis:
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://dqczihjtuujoqwkdpjgf.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<SUPABASE_ANON_KEY>
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+```
+
+### Supabase Auth
+- Usuário criado: `gestor@pareto.com`
+- Senha definida localmente (não versionada)
+
+### Validação do Sistema
+**Backend (FastAPI):**
+- ✅ Rodando em `http://localhost:8000`
+- ✅ Endpoints disponíveis: `/health`, `/contacts`, `/nps/*`, `/telegram/webhook`
+- ⚠️ Warning de Pydantic v1 + Python 3.14 (não afeta funcionamento)
+
+**Dashboard (Next.js):**
+- ✅ Rodando em `http://localhost:3001` (porta 3000 ocupada)
+- ✅ Carregou variáveis do `.env.local`
+- ✅ Conectou ao Supabase com sucesso
+- ✅ Login funcionando com usuário criado
+- ✅ Listando conversas de teste:
+  - `test_inteligencia_003` (idle)
+  - `test_promotor_002` (completed)
+  - `test_detrator_001` (completed)
+
+### Pendências de Validação
+- [ ] Clicar em conversa e ver histórico completo
+- [ ] Testar "Assumir controle"
+- [ ] Testar "Enviar mensagem manual"
+- [ ] Testar "Retornar ao automático"
+- [ ] Verificar se mensagem manual chega no Telegram
+
+### Pendências de Commit (resolvidas)
+- [x] `.env.local` ignorado no `.gitignore` (não versionar chaves)
+- [x] Commitados: `FIX_VERCEL.md`, `VERCEL_ENV_FIX.md`, `check_vercel_env.py`, `test_conversacao_completa.py`, `debug_tess_api*.py`
+- [x] Não rodar `npm audit fix --force`
