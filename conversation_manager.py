@@ -342,20 +342,19 @@ class ConversationManager:
             
             try:
                 llm = TessLLM(temperature=0.8, max_tokens=150)
-                prompt = f"""Você é a Tess, assistente da Pareto. Está coletando avaliação NPS.
+                prompt = f"""Você é a Tess. O usuário disse: \"{text}\"
 
-Usuário disse: \"{text}\"
+OBJETIVO: Conseguir a nota NPS (0 a 10).
 
-Você precisa de uma nota de 0 a 10, mas o usuário não deu.
+TAREFA:
+1. Responda o que ele disse (seja natural)
+2. Peça a nota gentilmente
 
-Responda:
-1. Primeiro, responda a mensagem deles de forma natural
-2. Depois, peça a nota de 0 a 10
-
-Diretrizes:
+DIRETRIZES:
+- Muito curto (máx 2 linhas)
 - Sem emojis
-- Natural e conversacional
-- Máximo 2-3 linhas
+- Não seja robótica
+- Ex: "Entendi! Mas pra eu registrar aqui, qual nota você daria?"
 
 Resposta:"""
                 response = llm.invoke(prompt)
@@ -363,9 +362,8 @@ Resposta:"""
             except:
                 # Fallback
                 return (
-                    "Não consegui identificar uma nota de 0 a 10 na sua mensagem. "
-                    "Pode me dizer quanto você nos daria? Por exemplo: "
-                    "'Dou nota 8' ou simplesmente '8'."
+                    "Entendi. Mas para eu conseguir registrar sua avaliação, "
+                    "preciso que você me diga uma nota de 0 a 10."
                 )
     
     async def _handle_waiting_feedback(self, chat_id: str, text: str) -> str:

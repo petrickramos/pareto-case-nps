@@ -58,13 +58,17 @@ async def test_full_system():
     print("\n👤 Usuário: /start")
     response1 = await conversation_manager.process_message(chat_id_1, "/start")
     print(f"🤖 Bot: {response1[:100]}...")
+
+    print("\n👤 Usuário: sim")
+    response2 = await conversation_manager.process_message(chat_id_1, "sim")
+    print(f"🤖 Bot: {response2[:100]}...")
     
     print("\n👤 Usuário: Dou nota 2, o atendimento foi péssimo e demorado")
-    response2 = await conversation_manager.process_message(
+    response3 = await conversation_manager.process_message(
         chat_id_1,
         "Dou nota 2, o atendimento foi péssimo e demorado"
     )
-    print(f"🤖 Bot: {response2}")
+    print(f"🤖 Bot: {response3}")
     
     session1 = conversation_manager.get_session(chat_id_1)
     print(f"\n✅ Estado: {session1.state.value}")
@@ -80,15 +84,19 @@ async def test_full_system():
     chat_id_2 = "test_promotor_002"
     
     print("\n👤 Usuário: /start")
-    response3 = await conversation_manager.process_message(chat_id_2, "/start")
-    print(f"🤖 Bot: {response3[:100]}...")
+    response4 = await conversation_manager.process_message(chat_id_2, "/start")
+    print(f"🤖 Bot: {response4[:100]}...")
+
+    print("\n👤 Usuário: sim")
+    response5 = await conversation_manager.process_message(chat_id_2, "sim")
+    print(f"🤖 Bot: {response5[:100]}...")
     
     print("\n👤 Usuário: 10! Adorei tudo, a equipe é excelente!")
-    response4 = await conversation_manager.process_message(
+    response6 = await conversation_manager.process_message(
         chat_id_2,
         "10! Adorei tudo, a equipe é excelente!"
     )
-    print(f"🤖 Bot: {response4}")
+    print(f"🤖 Bot: {response6}")
     
     session2 = conversation_manager.get_session(chat_id_2)
     print(f"\n✅ Estado: {session2.state.value}")
@@ -103,13 +111,20 @@ async def test_full_system():
     chat_id_3 = "test_inteligencia_003"
     
     print("\n👤 Usuário: oi")
-    response5 = await conversation_manager.process_message(chat_id_3, "oi")
-    print(f"🤖 Bot: {response5}")
-    
-    if "template" in response5.lower() or "não identifiquei" in response5.lower():
-        print("⚠️ ATENÇÃO: Resposta parece ser template!")
-    else:
-        print("✅ Resposta parece inteligente!")
+    response7 = await conversation_manager.process_message(chat_id_3, "oi")
+    print(f"🤖 Bot: {response7}")
+
+    print("\n👤 Usuário: /start")
+    response8 = await conversation_manager.process_message(chat_id_3, "/start")
+    print(f"🤖 Bot: {response8[:100]}...")
+
+    print("\n👤 Usuário: Como atribuo?")
+    response9 = await conversation_manager.process_message(chat_id_3, "Como atribuo?")
+    print(f"🤖 Bot: {response9}")
+
+    print("\n👤 Usuário: 8")
+    response10 = await conversation_manager.process_message(chat_id_3, "8")
+    print(f"🤖 Bot: {response10}")
     
     # Verificar logs no Supabase
     print("\n" + "="*70)

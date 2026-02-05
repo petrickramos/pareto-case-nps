@@ -29,11 +29,14 @@ async def test_conversation_flow():
     response1 = await conversation_manager.process_message(test_chat_id, "/start")
     print(f"Bot: {response1}\n")
     
-    response2 = await conversation_manager.process_message(
-        test_chat_id, 
+    response2 = await conversation_manager.process_message(test_chat_id, "sim")
+    print(f"Bot: {response2}\n")
+
+    response3 = await conversation_manager.process_message(
+        test_chat_id,
         "Dou nota 3, o atendimento foi horrível e demorado"
     )
-    print(f"Bot: {response2}\n")
+    print(f"Bot: {response3}\n")
     
     # Verificar sessão
     session = conversation_manager.get_session(test_chat_id)
@@ -48,14 +51,17 @@ async def test_conversation_flow():
     
     test_chat_id2 = "test_67890"
     
-    response3 = await conversation_manager.process_message(test_chat_id2, "/start")
-    print(f"Bot: {response3}\n")
+    response4 = await conversation_manager.process_message(test_chat_id2, "/start")
+    print(f"Bot: {response4}\n")
+
+    response5 = await conversation_manager.process_message(test_chat_id2, "sim")
+    print(f"Bot: {response5}\n")
     
-    response4 = await conversation_manager.process_message(
+    response6 = await conversation_manager.process_message(
         test_chat_id2,
         "10! Adorei tudo, a equipe é excelente!"
     )
-    print(f"Bot: {response4}\n")
+    print(f"Bot: {response6}\n")
     
     session2 = conversation_manager.get_session(test_chat_id2)
     print(f"✅ Estado final: {session2.state.value}")
@@ -68,8 +74,17 @@ async def test_conversation_flow():
     
     test_chat_id3 = "test_11111"
     
-    response5 = await conversation_manager.process_message(test_chat_id3, "oi")
-    print(f"Bot: {response5}\n")
+    response7 = await conversation_manager.process_message(test_chat_id3, "oi")
+    print(f"Bot: {response7}\n")
+
+    response8 = await conversation_manager.process_message(test_chat_id3, "/start")
+    print(f"Bot: {response8}\n")
+
+    response9 = await conversation_manager.process_message(test_chat_id3, "Como atribuo?")
+    print(f"Bot: {response9}\n")
+
+    response10 = await conversation_manager.process_message(test_chat_id3, "8")
+    print(f"Bot: {response10}\n")
     
     print("="*60)
     print("✅ TESTE CONCLUÍDO")
