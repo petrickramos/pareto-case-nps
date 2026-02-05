@@ -21,7 +21,7 @@ class EmpatheticResponseGenerator:
     
     def __init__(self):
         """Inicializa o gerador com TessLLM"""
-        self.llm = TessLLM(temperature=0.9, max_tokens=250)
+        self.llm = TessLLM(temperature=0.7, max_tokens=200)
         
         # Prompt template para respostas empáticas
         self.prompt_template = PromptTemplate(
@@ -107,50 +107,39 @@ Resposta:"""
         # Construir prompt personalizado
         if nome:
             # Versão COM nome
-            prompt = f"""Você é a Tess, assistente empática da Pareto.
+            prompt = f"""Você é a Tess, da Pareto.
 
-CONTEXTO DA AVALIAÇÃO:
+CONTEXTO:
 - Cliente: {nome}
-- Score NPS: {score}/10
-- Categoria: {categoria}
-- Sentimento: {sentimento_str}
+- Score: {score}/10 ({categoria})
 - Feedback: "{feedback_text}"
 
 TAREFA:
-Escreva uma resposta NATURAL e EMPÁTICA para {nome}.
+Responda o {nome} de forma natural.
 
 DIRETRIZES:
-- Use o nome {nome} na resposta
-- Seja genuína e humana
-- SEM EMOJIS
-- Máximo 3-4 linhas
-
-DETRATOR (0-6): Acolha e peça desculpas
-NEUTRO (7-8): Agradeça e pergunte como melhorar
-PROMOTOR (9-10): Celebre e agradeça
+- Use o nome {nome}
+- SEM EMOJIS (proibido)
+- Curto e direto (máx 3 linhas)
+- Não use frases prontas de call center
+- Agradeça sinceramente
 
 Resposta:"""
         else:
             # Versão SEM nome
-            prompt = f"""Você é a Tess, assistente empática da Pareto.
+            prompt = f"""Você é a Tess, da Pareto.
 
-CONTEXTO DA AVALIAÇÃO:
-- Score NPS: {score}/10
-- Categoria: {categoria}
-- Sentimento: {sentimento_str}
+CONTEXTO:
+- Score: {score}/10 ({categoria})
 - Feedback: "{feedback_text}"
 
 TAREFA:
-Escreva uma resposta NATURAL e EMPÁTICA.
+Agradeça a avaliação de forma natural.
 
 DIRETRIZES:
-- Seja genuína e humana
-- SEM EMOJIS
-- Máximo 3-4 linhas
-
-DETRATOR (0-6): Acolha e peça desculpas
-NEUTRO (7-8): Agradeça e pergunte como melhorar
-PROMOTOR (9-10): Celebre e agradeça
+- SEM EMOJIS (proibido)
+- Curto e direto (máx 3 linhas)
+- Não use frases prontas de call center
 
 Resposta:"""
         
@@ -166,7 +155,7 @@ Resposta:"""
             # Fallback para resposta básica
             return self._fallback_response(score, feedback_text, nome)
     
-    def _fallback_response(self, score: int, feedback: str, nome: str = "") -> str:
+    def _fallback_response(self, score: int, feedback_text: str, nome: str = "") -> str:
         """
         Resposta inteligente baseada em análise do feedback
         Mais sofisticada que templates fixos
@@ -174,58 +163,26 @@ Resposta:"""
         
         # Analisar se tem feedback textual
         has_feedback = bool(feedback_text and len(feedback_text.strip()) > 3)
+        name_part = f", {nome}" if nome else ""
+        snippet = feedback_text.strip() if feedback_text else ""
+        if len(snippet) > 80:
+            snippet = snippet[:77] + "..."
+        snippet_text = f' Você comentou "{snippet}".' if snippet else ""
         
         if score <= 6:  # DETRATOR
             if has_feedback:
-                # Analisar palavras-chave no feedback
-                feedback_lower = feedback_text.lower()
-                
-                if any(word in feedback_lower for word in ['atendimento', 'suporte', 'resposta', 'contato']):
-                    return f"Poxa, que situação chata com o atendimento. 😔 Você mencionou '{feedback_text[:50]}...' - pode me contar mais detalhes sobre o que aconteceu? Queremos muito corrigir isso."
-                
-                elif any(word in feedback_lower for word in ['produto', 'qualidade', 'funciona', 'bug', 'erro']):
-                    return f"Entendo sua frustração com o produto. 😔 Sobre '{feedback_text[:50]}...' - isso não deveria acontecer. Pode me explicar melhor para eu escalar pro time técnico?"
-                
-                elif any(word in feedback_lower for word in ['preço', 'caro', 'valor', 'custo']):
-                    return f"Entendo sua preocupação com o valor. Sobre '{feedback_text[:50]}...' - queremos entender melhor sua percepção. Pode me contar mais?"
-                
-                else:
-                    return f"Poxa, sentimos muito. 😔 Vi que você mencionou '{feedback_text[:50]}...' - pode me contar mais detalhes? Queremos muito melhorar isso."
-            
-            else:
-                return "Opa, vi que você deu uma nota baixa. 😔 Rolou algum problema específico? Conta pra gente, queremos muito entender e melhorar."
+                return f"Sinto muito{name_part} pela experiência.{snippet_text} Pode me contar mais detalhes para eu ajudar?"
+            return f"Sinto muito{name_part} pela experiência. Pode me dizer o que aconteceu? Isso vai nos ajudar a melhorar."
         
-        elif score <= 8:  # NEUTRO
+        if score <= 8:  # NEUTRO
             if has_feedback:
-                feedback_lower = feedback_text.lower()
-                
-                if any(word in feedback_lower for word in ['ok', 'normal', 'médio', 'razoável']):
-                    return f"Legal que tá funcionando! Mas vi que você disse '{feedback_text[:50]}...' - o que falta para ser perfeito? Pode ser bem sincero!"
-                
-                elif any(word in feedback_lower for word in ['poderia', 'falta', 'melhorar', 'gostaria']):
-                    return f"Obrigado pelo feedback! Sobre '{feedback_text[:50]}...' - adoraríamos ouvir mais sugestões. O que mais poderíamos fazer?"
-                
-                else:
-                    return f"Obrigado! Vi que você mencionou '{feedback_text[:50]}...' - tem mais alguma coisa que poderíamos melhorar? Sua opinião é muito valiosa!"
-            
-            else:
-                return "Obrigado pelo feedback! O que falta para ser perfeito pra você? Pode ser sincero, vai nos ajudar muito! 💙"
+                return f"Obrigado{name_part} pelo feedback.{snippet_text} O que faltou para ficar excelente?"
+            return f"Obrigado{name_part} pela avaliação. O que faltou para ser uma experiência ótima?"
         
-        else:  # PROMOTOR
-            if has_feedback:
-                feedback_lower = feedback_text.lower()
-                
-                if any(word in feedback_lower for word in ['adorei', 'amei', 'excelente', 'perfeito', 'ótimo']):
-                    return f"Que alegria ouvir isso! 🤩 Sobre '{feedback_text[:50]}...' - fico super feliz que você curtiu! Quer contar mais sobre o que te surpreendeu?"
-                
-                elif any(word in feedback_lower for word in ['equipe', 'atendimento', 'time', 'pessoal']):
-                    return f"Que feedback incrível! 🤩 A equipe vai adorar saber sobre '{feedback_text[:50]}...' - tem mais algum detalhe que você queira compartilhar?"
-                
-                else:
-                    return f"Muito obrigado! 🤩 Adoramos saber sobre '{feedback_text[:50]}...' - quer contar mais sobre o que você mais gostou?"
-            
-            else:
-                return "Que alegria saber disso! 🤩 Muito obrigado pela confiança. Se quiser compartilhar o que você mais gostou, ficaremos felizes em ouvir!"
+        # PROMOTOR
+        if has_feedback:
+            return f"Que bom saber disso{name_part}!{snippet_text} O que você mais gostou?"
+        return f"Que bom saber disso{name_part}. Obrigado pela confiança!"
     
     @staticmethod
     def generate_follow_up_question(score: int) -> str:
