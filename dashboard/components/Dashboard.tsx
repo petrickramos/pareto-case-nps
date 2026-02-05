@@ -134,10 +134,10 @@ export default function Dashboard({ managerId }: { managerId?: string | null }) 
           </p>
         </div>
         <div className="split" style={{ flex: 1 }}>
-          <div className="panel" style={{ border: "none", boxShadow: "none" }}>
+          <div className="panel chat-panel" style={{ border: "none", boxShadow: "none" }}>
             <ConversationDetail chatId={selectedChatId} messages={conversationMessages} />
           </div>
-          <div className="panel" style={{ border: "none", boxShadow: "none" }}>
+          <div className="panel control-panel" style={{ border: "none", boxShadow: "none" }}>
             <ManualControls chatId={selectedChatId} managerId={managerId} />
           </div>
         </div>
