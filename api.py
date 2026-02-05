@@ -25,6 +25,7 @@ from hubspot_client import HubSpotClient
 from telegram_client import TelegramClient
 from fastapi import Request, Header
 from langsmith import traceable
+from supabase_client import supabase_client
 
 # Criar aplicação FastAPI
 app = FastAPI(
@@ -66,6 +67,17 @@ class EvaluateResponse(BaseModel):
     acoes_recomendadas: list
     resumo_executivo: str
     resposta_empatica: str  # Nova: resposta humanizada para o cliente
+
+
+class ManualMessageRequest(BaseModel):
+    chat_id: str
+    message: str
+    manager_id: Optional[str] = None
+
+
+class ManualModeRequest(BaseModel):
+    chat_id: str
+    manager_id: Optional[str] = None
 
 
 @app.get("/health")
@@ -277,6 +289,88 @@ async def run_full_nps_flow(contact_id: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro no fluxo completo: {str(e)}")
+
+
+@app.post("/telegram/send-manual")
+async def send_manual_message(request: ManualMessageRequest):
+    """Permite gestor enviar mensagem manual e pausar automação"""
+    from conversation_manager import conversation_manager
+
+    if not request.chat_id or not request.message.strip():
+        raise HTTPException(status_code=400, detail="chat_id e message são obrigatórios")
+
+    try:
+        conversation_manager.enable_manual_mode(request.chat_id)
+
+        # Enviar mensagem via Telegram
+        sent = await telegram_client.send_message(int(request.chat_id), request.message.strip())
+        if not sent:
+            raise HTTPException(status_code=500, detail="Falha ao enviar mensagem manual")
+
+        # Logar mensagem no Supabase
+        session = conversation_manager.get_session(request.chat_id)
+        supabase_client.log_conversation_message(
+            chat_id=request.chat_id,
+            message_text=request.message.strip(),
+            sender="manager",
+            conversation_state=session.state.value,
+            nps_score=session.nps_score,
+            sentiment=session.sentiment,
+            metadata={
+                "manager_id": request.manager_id,
+                "manual_mode": True
+            }
+        )
+
+        return {"status": "sent"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao enviar mensagem manual: {str(e)}")
+
+
+@app.post("/telegram/manual/enable")
+async def enable_manual_mode(request: ManualModeRequest):
+    """Ativa o modo manual para um chat específico"""
+    from conversation_manager import conversation_manager
+
+    if not request.chat_id:
+        raise HTTPException(status_code=400, detail="chat_id é obrigatório")
+
+    conversation_manager.enable_manual_mode(request.chat_id)
+    session = conversation_manager.get_session(request.chat_id)
+    supabase_client.log_conversation_message(
+        chat_id=request.chat_id,
+        message_text="[MANUAL_MODE] ativado",
+        sender="system",
+        conversation_state=session.state.value,
+        nps_score=session.nps_score,
+        sentiment=session.sentiment,
+        metadata={"manager_id": request.manager_id, "manual_mode": True}
+    )
+    return {"status": "manual_enabled"}
+
+
+@app.post("/telegram/manual/disable")
+async def disable_manual_mode(request: ManualModeRequest):
+    """Desativa o modo manual para um chat específico"""
+    from conversation_manager import conversation_manager
+
+    if not request.chat_id:
+        raise HTTPException(status_code=400, detail="chat_id é obrigatório")
+
+    conversation_manager.disable_manual_mode(request.chat_id)
+    session = conversation_manager.get_session(request.chat_id)
+    supabase_client.log_conversation_message(
+        chat_id=request.chat_id,
+        message_text="[MANUAL_MODE] desativado",
+        sender="system",
+        conversation_state=session.state.value,
+        nps_score=session.nps_score,
+        sentiment=session.sentiment,
+        metadata={"manager_id": request.manager_id, "manual_mode": False}
+    )
+    return {"status": "manual_disabled"}
 
 
 @app.post("/telegram/webhook")
