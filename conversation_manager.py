@@ -16,9 +16,33 @@ from services.cliente_service import cliente_service
 from supabase_client import supabase_client
 
 
+START_REQUIRED_MESSAGE = "Para começar, digite /start."
+GREETING_BASE_MESSAGE = (
+    "Olá{nome}! Tudo bem?\n\n"
+    "Sou a Tess, assistente de qualidade da Pareto.\n\n"
+    "Gostaríamos muito de saber como foi a sua experiência conosco, "
+    "posso te dar mais detalhes sobre como deixar seu feedback?"
+)
+ASK_SCORE_MESSAGE = (
+    "Maravilha! Por favor, atribua uma nota de 0 a 10 sobre a sua "
+    "experiência usando a Tess."
+)
+DETAILS_MESSAGE = (
+    "Entendi, basta digitar no teclado do celular mesmo uma nota de 0 a 10 "
+    "sobre a sua experiência usando a Tess."
+)
+DECLINE_MESSAGE = (
+    "Sem problemas! Quando quiser participar, é só digitar /start novamente."
+)
+CONFIRMATION_FALLBACK_MESSAGE = (
+    "Você gostaria de deixar seu feedback agora? Responda sim ou não."
+)
+
+
 class ConversationState(Enum):
     """Estados possíveis de uma conversa NPS"""
     IDLE = "idle"                        # Aguardando início
+    WAITING_CONFIRMATION = "waiting_confirmation"  # Aguardando confirmação do usuário
     WAITING_SCORE = "waiting_score"      # Aguardando nota NPS (0-10)
     WAITING_FEEDBACK = "waiting_feedback"  # Aguardando justificativa textual
     COMPLETED = "completed"              # Conversa finalizada
@@ -42,6 +66,16 @@ class ConversationSession:
         # NOVO: Dados do cliente (HubSpot Mock)
         self.cliente_identificado: bool = False
         self.dados_cliente: Optional[Dict[str, Any]] = None
+
+    def reset_for_new_conversation(self):
+        """Reseta campos da sessão para iniciar nova conversa"""
+        self.state = ConversationState.IDLE
+        self.nps_score = None
+        self.feedback_text = ""
+        self.sentiment = None
+        self.messages_history = []
+        self.updated_at = datetime.now()
+        self.manual_mode = False
     
     def to_dict(self) -> Dict[str, Any]:
         """Serializa sessão para dict"""
@@ -115,6 +149,9 @@ class ConversationManager:
         # Verificar se está em modo manual
         if session.manual_mode:
             return None  # Não responder automaticamente
+
+        if self._is_start_command(text):
+            self._reset_session_for_start(chat_id, session)
         
         # Adicionar mensagem ao histórico
         session.messages_history.append({
@@ -136,6 +173,9 @@ class ConversationManager:
         # Processar baseado no estado
         if session.state == ConversationState.IDLE:
             response = await self._handle_idle(chat_id, text, username)  # Passar username
+
+        elif session.state == ConversationState.WAITING_CONFIRMATION:
+            response = await self._handle_waiting_confirmation(chat_id, text)
         
         elif session.state == ConversationState.WAITING_SCORE:
             response = await self._handle_waiting_score(chat_id, text)
@@ -217,9 +257,12 @@ class ConversationManager:
         return None
     
     async def _handle_idle(self, chat_id: str, text: str, username: Optional[str] = None) -> str:
-        """Estado IDLE: Aguardando início da conversa"""
+        """Estado IDLE: Aguardando início da conversa (requer /start)"""
         
         session = self.get_session(chat_id)
+
+        if not self._is_start_command(text):
+            return START_REQUIRED_MESSAGE
         
         # Tentar identificar cliente (se ainda não identificado)
         if not session.cliente_identificado:
@@ -229,131 +272,41 @@ class ConversationManager:
                 session.dados_cliente = cliente
                 print(f"✅ Cliente identificado: {cliente.get('properties', {}).get('firstname', 'N/A')}")
         
-        # PRIORIDADE 1: Verificar se já tem nota NPS direto (sem precisar /start)
+        self.transition_state(chat_id, ConversationState.WAITING_CONFIRMATION)
+        return self._gerar_saudacao(session)
+
+    async def _handle_waiting_confirmation(self, chat_id: str, text: str) -> str:
+        """Estado WAITING_CONFIRMATION: Aguardando confirmação do usuário"""
         score = self._extract_score(text)
         if score is not None:
-            # Usuário já deu nota direto! Processar como WAITING_SCORE
-            print(f"✅ Nota detectada direto no IDLE: {score}/10")
             self.transition_state(chat_id, ConversationState.WAITING_SCORE)
-            # Processar a mensagem como se estivesse em WAITING_SCORE
             return await self._handle_waiting_score(chat_id, text)
-        
-        # PRIORIDADE 2: Comando /start ou primeira mensagem
-        if text.strip().lower().startswith('/start') or not session.messages_history:
+
+        intent = self._classify_confirmation_intent(text)
+
+        if intent == "details":
             self.transition_state(chat_id, ConversationState.WAITING_SCORE)
-            return self._gerar_saudacao(session)
-        
-        # PRIORIDADE 3: Mensagem casual/off-script
-        else:
-            # Usar IA para responder naturalmente
-            from agents.llm.tess_llm import TessLLM
-            
-            try:
-                llm = TessLLM(temperature=0.7, max_tokens=150)
-                
-                # Prompt personalizado se tiver nome
-                nome = ""
-                if session.dados_cliente:
-                    props = session.dados_cliente.get("properties", {})
-                    nome = props.get("firstname", "")
-                
-                if nome:
-                    prompt = f"""Você é a Tess, assistente da Pareto. O cliente {nome} disse: "{text}"
+            return DETAILS_MESSAGE
 
-Responda de forma natural e depois peça para ele avaliar a Pareto de 0 a 10.
+        if intent == "confirm":
+            self.transition_state(chat_id, ConversationState.WAITING_SCORE)
+            return ASK_SCORE_MESSAGE
 
-Diretrizes:
-- Seja natural e conversacional
-- Sem emojis
-- Use o nome {nome} na resposta
-- Máximo 2-3 linhas
+        if intent == "decline":
+            self.transition_state(chat_id, ConversationState.IDLE)
+            return DECLINE_MESSAGE
 
-Resposta:"""
-                else:
-                    prompt = f"""Você é a Tess, assistente da Pareto. Um usuário disse: "{text}"
-
-Responda de forma natural e depois peça para ele avaliar a Pareto de 0 a 10.
-
-Diretrizes:
-- Seja natural e conversacional
-- Sem emojis
-- Máximo 2-3 linhas
-
-Resposta:"""
-                
-                response = llm.invoke(prompt)
-                return response.strip()
-            except:
-                # Fallback
-                return (
-                    "Olá! Gostaria de saber como foi sua experiência com a Pareto. "
-                    "Em uma escala de 0 a 10, quanto você nos recomendaria?"
-                )
+        return CONFIRMATION_FALLBACK_MESSAGE
     
     def _gerar_saudacao(self, session: 'ConversationSession') -> str:
-        """Gera saudação personalizada COM ou SEM contexto do cliente"""
-        from agents.llm.tess_llm import TessLLM
-        
-        llm = TessLLM(temperature=0.7, max_tokens=200)
-        
+        """Gera saudação baseada no novo fluxo de confirmação"""
+        nome = ""
         if session.cliente_identificado and session.dados_cliente:
-            # Saudação COM Contexto
             props = session.dados_cliente.get("properties", {})
-            nome = props.get("firstname", "")
-            sobrenome = props.get("lastname", "")
-            
-            # Produtos (se disponível no contexto)
-            produtos = []
-            contexto = session.dados_cliente.get("contexto", {})
-            if contexto:
-                deals = contexto.get("deals", [])
-                # Extrair nomes de produtos dos deals (simplificado)
-                produtos = ["serviços da Pareto"]  # Placeholder
-            
-            prompt = f"""Você é a Tess, assistente de qualidade da Pareto.
+            nome = props.get("firstname", "").strip()
 
-DADOS DO CLIENTE:
-- Nome: {nome} {sobrenome}
-
-TAREFA:
-Escreva uma saudação calorosa e personalizada:
-1. Cumprimente pelo nome
-2. Diga que quer saber sobre a experiência dele
-3. Peça uma nota de 0 a 10
-
-DIRETRIZES:
-- Tom amigável e profissional
-- Sem emojis
-- Máximo 4 linhas
-- Seja natural, não mencione todos os dados
-
-Resposta:"""
-        else:
-            # Saudação SEM Contexto
-            prompt = """Você é a Tess, assistente de qualidade da Pareto.
-
-TAREFA:
-Escreva uma saudação calorosa:
-1. Se apresente
-2. Explique que quer saber sobre a experiência
-3. Peça uma nota de 0 a 10
-
-DIRETRIZES:
-- Tom acolhedor
-- Sem emojis
-- Máximo 4 linhas
-
-Resposta:"""
-        
-        try:
-            return llm.invoke(prompt).strip()
-        except:
-            # Fallback
-            return (
-                "Olá! Sou a Tess, assistente de qualidade da Pareto.\n\n"
-                "Queremos saber como foi sua experiência recente conosco. "
-                "Em uma escala de 0 a 10, quanto você recomendaria nossos serviços?"
-            )
+        nome_suffix = f", {nome}" if nome else ""
+        return GREETING_BASE_MESSAGE.format(nome=nome_suffix)
     
     @traceable(name="Extract NPS Score")
     async def _handle_waiting_score(self, chat_id: str, text: str) -> str:
@@ -435,6 +388,68 @@ Resposta:"""
             "Obrigado! Sua avaliação já foi registrada.\n\n"
             "Se quiser fazer uma nova avaliação, digite /start novamente."
         )
+
+    def _reset_session_for_start(self, chat_id: str, session: ConversationSession):
+        """Reinicia a sessão para um novo /start"""
+        if session.state != ConversationState.IDLE:
+            self.transition_state(chat_id, ConversationState.IDLE)
+        session.reset_for_new_conversation()
+
+    def _is_start_command(self, text: str) -> bool:
+        return text.strip().lower().startswith("/start")
+
+    def _normalize_text(self, text: str) -> str:
+        return re.sub(r"\s+", " ", text.strip().lower())
+
+    def _classify_confirmation_intent(self, text: str) -> str:
+        """Classifica intenção do usuário após a saudação"""
+        normalized = self._normalize_text(text)
+
+        if not normalized:
+            return "unknown"
+
+        detail_phrases = [
+            "como atribuo",
+            "como faço",
+            "como faco",
+            "como fazer",
+            "como funciona",
+            "como deixo",
+            "como dou",
+            "como dar",
+            "como avaliar",
+            "como envio",
+            "como mandar",
+            "mais detalhes",
+            "detalhes",
+            "explica",
+            "explicar",
+            "o que é isso",
+            "o que e isso",
+        ]
+
+        if any(phrase in normalized for phrase in detail_phrases):
+            return "details"
+
+        if "como" in normalized and re.search(
+            r"\b(atribuir|atribuo|fa[cç]o|faco|faz|fazer|funciona|deixo|dar|nota|avaliar)\b",
+            normalized
+        ):
+            return "details"
+
+        if re.search(r"\b(sim|claro|ok|okay|certo|beleza|pode|pode ser|vamos|bora)\b", normalized):
+            return "confirm"
+
+        if re.search(r"\b(n[aã]o|nao)\b", normalized):
+            return "decline"
+
+        if any(
+            phrase in normalized
+            for phrase in ["prefiro não", "prefiro nao", "agora não", "agora nao", "depois"]
+        ):
+            return "decline"
+
+        return "unknown"
     
     def _extract_score(self, text: str) -> Optional[int]:
         """Extrai nota NPS (0-10) do texto"""
