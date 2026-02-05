@@ -18,12 +18,9 @@ from supabase_client import supabase_client
 
 START_REQUIRED_MESSAGE = "Para começar, digite /start."
 GREETING_BASE_MESSAGE = (
-    "Olá{nome}! Tudo bem?\n\n"
-    "Sou a Tess, assistente de qualidade da Pareto.\n\n"
-    "Queremos saber como foi sua experiência recente conosco. "
-    "Sua opinião é muito importante para nós.\n\n"
-    "Em uma escala de 0 a 10, quanto você recomendaria nossos serviços? "
-    "Pode me contar também o motivo da sua nota."
+    "Olá{nome}! Sou a Tess, assistente de qualidade da Pareto.\n\n"
+    "Gostaríamos muito de saber como foi a sua experiência conosco. "
+    "Por favor, atribua uma nota de 0 a 10. Sua opinião é muito valiosa."
 )
 
 
@@ -346,7 +343,8 @@ Resposta:"""
         
         return (
             "Obrigado! Sua avaliação já foi registrada.\n\n"
-            "Se quiser fazer uma nova avaliação, digite /start novamente."
+            "Se quiser fazer uma nova avaliação, digite /start novamente "
+            "ou toque em /start para enviar automaticamente."
         )
 
     def _reset_session_for_start(self, chat_id: str, session: ConversationSession):
