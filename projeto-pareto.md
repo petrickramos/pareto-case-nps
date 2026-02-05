@@ -213,6 +213,7 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
   - `test_inteligencia_003` (idle)
   - `test_promotor_002` (completed)
   - `test_detrator_001` (completed)
+- ✅ Identidade visual Pareto aplicada (dark + aurora + glassmorphism) e aprovada
 
 ### Pendências de Validação
 - [ ] Clicar em conversa e ver histórico completo
@@ -225,3 +226,38 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 - [x] `.env.local` ignorado no `.gitignore` (não versionar chaves)
 - [x] Commitados: `FIX_VERCEL.md`, `VERCEL_ENV_FIX.md`, `check_vercel_env.py`, `test_conversacao_completa.py`, `debug_tess_api*.py`
 - [x] Não rodar `npm audit fix --force`
+
+---
+
+## 🚀 Instruções para Deploy do Dashboard na Vercel (05/02/2026)
+
+### Passo 1: Criar novo projeto
+1. Acesse: https://vercel.com/dashboard  
+2. **Add New** → **Project**  
+3. Repositório: `petrickramos/pareto-case-nps`  
+4. **Root Directory**: `langchain/dashboard`  
+5. **Project Name**: `pareto-nps-dashboard`  
+
+### Passo 2: Variáveis de ambiente
+Adicionar em **Production**, **Preview** e **Development**:
+
+| Name | Value |
+|------|-------|
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://dqczihjtuujoqwkdpjgf.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `<SUPABASE_ANON_KEY>` |
+| `NEXT_PUBLIC_API_BASE_URL` | `https://pareto-case-nps.vercel.app` |
+
+> **Nota:** usar a anon key do Supabase (pública). Não usar `service_role`.
+
+### Passo 3: Deploy
+1. Clique em **Deploy**  
+2. Aguarde o build  
+3. URL esperada: `https://pareto-nps-dashboard.vercel.app`
+
+### Passo 4: Teste pós-deploy
+- [ ] Login com `gestor@pareto.com`  
+- [ ] Lista de conversas carrega  
+- [ ] Histórico abre  
+- [ ] Assumir controle  
+- [ ] Enviar mensagem manual  
+- [ ] Retornar ao automático  
