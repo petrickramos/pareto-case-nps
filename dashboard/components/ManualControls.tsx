@@ -32,14 +32,23 @@ export default function ManualControls({ chatId, managerId }: Props) {
         })
       });
 
+      const data = await response.json().catch(() => null);
       if (!response.ok) {
-        throw new Error("Falha ao enviar mensagem manual.");
+        throw new Error(data?.detail || "Falha ao enviar mensagem manual.");
       }
 
       setMessage("");
-      setStatus("Mensagem enviada. Bot em modo manual.");
+      if (data?.status === "logged_only") {
+        setStatus("Mensagem registrada (chat_id inválido para Telegram).");
+      } else {
+        setStatus("Mensagem enviada. Bot em modo manual.");
+      }
     } catch (error) {
-      setStatus("Não foi possível enviar. Verifique o endpoint.");
+      const message =
+        error instanceof Error && error.message
+          ? `Não foi possível enviar. ${error.message}`
+          : "Não foi possível enviar. Verifique o endpoint.";
+      setStatus(message);
     } finally {
       setLoading(false);
     }

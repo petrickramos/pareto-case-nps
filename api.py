@@ -302,10 +302,17 @@ async def send_manual_message(request: ManualMessageRequest):
     try:
         conversation_manager.enable_manual_mode(request.chat_id)
 
-        # Enviar mensagem via Telegram
-        sent = await telegram_client.send_message(int(request.chat_id), request.message.strip())
-        if not sent:
-            raise HTTPException(status_code=500, detail="Falha ao enviar mensagem manual")
+        # Enviar mensagem via Telegram (apenas se chat_id for numérico)
+        telegram_chat_id = None
+        try:
+            telegram_chat_id = int(request.chat_id)
+        except ValueError:
+            telegram_chat_id = None
+
+        if telegram_chat_id is not None:
+            sent = await telegram_client.send_message(telegram_chat_id, request.message.strip())
+            if not sent:
+                raise HTTPException(status_code=500, detail="Falha ao enviar mensagem manual")
 
         # Logar mensagem no Supabase
         session = conversation_manager.get_session(request.chat_id)
@@ -318,10 +325,13 @@ async def send_manual_message(request: ManualMessageRequest):
             sentiment=session.sentiment,
             metadata={
                 "manager_id": request.manager_id,
-                "manual_mode": True
+                "manual_mode": True,
+                "telegram_sent": telegram_chat_id is not None
             }
         )
 
+        if telegram_chat_id is None:
+            return {"status": "logged_only", "detail": "chat_id não é numérico; mensagem registrada sem envio ao Telegram"}
         return {"status": "sent"}
     except HTTPException:
         raise
