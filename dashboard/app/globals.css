@@ -329,6 +329,102 @@ textarea:focus {
   min-height: 0;
 }
 
+.metrics-shell {
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-height: 100vh;
+}
+
+.metrics-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.metrics-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.metric-card {
+  padding: 18px 20px;
+}
+
+.metric-label {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 0;
+}
+
+.metric-value {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 6px 0 4px;
+}
+
+.metric-helper {
+  color: var(--muted-strong);
+  font-size: 12px;
+  margin: 0;
+}
+
+.metrics-charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.metric-chart .panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.metric-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.metric-bar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.metric-bar-track {
+  width: 100%;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.metric-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.metric-empty {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0;
+}
+
 .control-panel {
   display: flex;
   flex-direction: column;

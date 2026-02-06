@@ -180,13 +180,18 @@ export default function Dashboard({ managerId }: { managerId?: string | null }) 
                 {loading ? "Carregando conversas..." : `${summaries.length} chats ativos`}
               </p>
             </div>
-            <button
-              className="button secondary"
-              type="button"
-              onClick={() => supabase.auth.signOut()}
-            >
-              Sair
-            </button>
+            <div style={{ display: "flex", gap: 8 }}>
+              <a className="button secondary" href="/metrics">
+                Metricas
+              </a>
+              <button
+                className="button secondary"
+                type="button"
+                onClick={() => supabase.auth.signOut()}
+              >
+                Sair
+              </button>
+            </div>
           </div>
         </div>
         <div className="panel-body">
