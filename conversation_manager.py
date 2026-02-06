@@ -146,13 +146,6 @@ class ConversationManager:
         """
         session = self.get_session(chat_id)
         
-        # Verificar se está em modo manual
-        if session.manual_mode:
-            return None  # Não responder automaticamente
-
-        if self._is_start_command(text):
-            self._reset_session_for_start(chat_id, session)
-        
         # Adicionar mensagem ao histórico
         session.messages_history.append({
             "sender": "user",
@@ -169,6 +162,13 @@ class ConversationManager:
             nps_score=session.nps_score,
             sentiment=session.sentiment
         )
+
+        # Se estiver em modo manual, apenas registrar (sem responder automaticamente)
+        if session.manual_mode:
+            return None
+
+        if self._is_start_command(text):
+            self._reset_session_for_start(chat_id, session)
         
         # Processar baseado no estado
         if session.state == ConversationState.IDLE:
