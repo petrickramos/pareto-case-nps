@@ -171,7 +171,7 @@ export default function Dashboard({ managerId }: { managerId?: string | null }) 
 
   return (
     <div className="app-shell">
-      <section className="panel">
+      <section className="panel panel-stack">
         <div className="panel-header">
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
             <div>
@@ -194,7 +194,7 @@ export default function Dashboard({ managerId }: { managerId?: string | null }) 
             </div>
           </div>
         </div>
-        <div className="panel-body">
+        <div className="panel-body panel-scroll">
           <ConversationList
             conversations={summaries}
             selectedChatId={selectedChatId}

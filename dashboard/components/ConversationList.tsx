@@ -24,8 +24,10 @@ export default function ConversationList({
           }`}
           onClick={() => onSelect(conversation.chat_id)}
         >
-          <div className="text-strong">Chat {conversation.chat_id}</div>
-          <p style={{ margin: "6px 0", color: "var(--muted)", fontSize: 13 }}>
+          <div className="text-strong chat-id" title={conversation.chat_id}>
+            Chat {conversation.chat_id}
+          </div>
+          <p className="list-message">
             {conversation.last_message}
           </p>
           <div className="meta-row">
