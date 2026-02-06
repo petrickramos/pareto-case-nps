@@ -18,15 +18,31 @@ from supabase_client import supabase_client
 
 START_REQUIRED_MESSAGE = "Para começar, digite /start."
 GREETING_BASE_MESSAGE = (
-    "Olá{nome}! Sou a Tess, assistente de qualidade da Pareto.\n\n"
-    "Gostaríamos muito de saber como foi a sua experiência conosco. "
-    "Por favor, atribua uma nota de 0 a 10. Sua opinião é muito valiosa."
+    "Olá{nome}! Tudo bem?\n\n"
+    "Sou a Tess, assistente de qualidade da Pareto.\n\n"
+    "Gostaríamos muito de saber como foi a sua experiência conosco, "
+    "posso te dar mais detalhes sobre como deixar seu feedback?"
+)
+ASK_SCORE_MESSAGE = (
+    "Maravilha! Por favor, atribua uma nota de 0 a 10 sobre a sua "
+    "experiência usando a Tess."
+)
+DETAILS_MESSAGE = (
+    "Entendi, basta digitar no teclado do celular mesmo uma nota de 0 a 10 "
+    "sobre a sua experiência usando a Tess."
+)
+DECLINE_MESSAGE = (
+    "Sem problemas! Quando quiser participar, é só digitar /start novamente."
+)
+CONFIRMATION_FALLBACK_MESSAGE = (
+    "Você gostaria de deixar seu feedback agora? Responda sim ou não."
 )
 
 
 class ConversationState(Enum):
     """Estados possíveis de uma conversa NPS"""
     IDLE = "idle"                        # Aguardando início
+    WAITING_CONFIRMATION = "waiting_confirmation"  # Aguardando confirmação do usuário
     WAITING_SCORE = "waiting_score"      # Aguardando nota NPS (0-10)
     WAITING_FEEDBACK = "waiting_feedback"  # Aguardando justificativa textual
     COMPLETED = "completed"              # Conversa finalizada
@@ -129,9 +145,12 @@ class ConversationManager:
         Retorna resposta inteligente do bot
         """
         session = self.get_session(chat_id)
+        
+        # Verificar se está em modo manual
+        if session.manual_mode:
+            return None  # Não responder automaticamente
 
-        is_start = self._is_start_command(text)
-        if is_start and not session.manual_mode:
+        if self._is_start_command(text):
             self._reset_session_for_start(chat_id, session)
         
         # Adicionar mensagem ao histórico
@@ -150,15 +169,14 @@ class ConversationManager:
             nps_score=session.nps_score,
             sentiment=session.sentiment
         )
-
-        # Verificar se está em modo manual (loga, mas não responde automaticamente)
-        if session.manual_mode:
-            return None
-
+        
         # Processar baseado no estado
         if session.state == ConversationState.IDLE:
             response = await self._handle_idle(chat_id, text, username)  # Passar username
 
+        elif session.state == ConversationState.WAITING_CONFIRMATION:
+            response = await self._handle_waiting_confirmation(chat_id, text)
+        
         elif session.state == ConversationState.WAITING_SCORE:
             response = await self._handle_waiting_score(chat_id, text)
         
@@ -254,8 +272,31 @@ class ConversationManager:
                 session.dados_cliente = cliente
                 print(f"✅ Cliente identificado: {cliente.get('properties', {}).get('firstname', 'N/A')}")
         
-        self.transition_state(chat_id, ConversationState.WAITING_SCORE)
+        self.transition_state(chat_id, ConversationState.WAITING_CONFIRMATION)
         return self._gerar_saudacao(session)
+
+    async def _handle_waiting_confirmation(self, chat_id: str, text: str) -> str:
+        """Estado WAITING_CONFIRMATION: Aguardando confirmação do usuário"""
+        score = self._extract_score(text)
+        if score is not None:
+            self.transition_state(chat_id, ConversationState.WAITING_SCORE)
+            return await self._handle_waiting_score(chat_id, text)
+
+        intent = self._classify_confirmation_intent(text)
+
+        if intent == "details":
+            self.transition_state(chat_id, ConversationState.WAITING_SCORE)
+            return DETAILS_MESSAGE
+
+        if intent == "confirm":
+            self.transition_state(chat_id, ConversationState.WAITING_SCORE)
+            return ASK_SCORE_MESSAGE
+
+        if intent == "decline":
+            self.transition_state(chat_id, ConversationState.IDLE)
+            return DECLINE_MESSAGE
+
+        return CONFIRMATION_FALLBACK_MESSAGE
     
     def _gerar_saudacao(self, session: 'ConversationSession') -> str:
         """Gera saudação baseada no novo fluxo de confirmação"""
@@ -301,19 +342,20 @@ class ConversationManager:
             
             try:
                 llm = TessLLM(temperature=0.8, max_tokens=150)
-                prompt = f"""Você é a Tess. O usuário disse: \"{text}\"
+                prompt = f"""Você é a Tess, assistente da Pareto. Está coletando avaliação NPS.
 
-OBJETIVO: Conseguir a nota NPS (0 a 10).
+Usuário disse: \"{text}\"
 
-TAREFA:
-1. Responda o que ele disse (seja natural)
-2. Peça a nota gentilmente
+Você precisa de uma nota de 0 a 10, mas o usuário não deu.
 
-DIRETRIZES:
-- Muito curto (máx 2 linhas)
+Responda:
+1. Primeiro, responda a mensagem deles de forma natural
+2. Depois, peça a nota de 0 a 10
+
+Diretrizes:
 - Sem emojis
-- Não seja robótica
-- Ex: "Entendi! Mas pra eu registrar aqui, qual nota você daria?"
+- Natural e conversacional
+- Máximo 2-3 linhas
 
 Resposta:"""
                 response = llm.invoke(prompt)
@@ -321,8 +363,9 @@ Resposta:"""
             except:
                 # Fallback
                 return (
-                    "Entendi. Mas para eu conseguir registrar sua avaliação, "
-                    "preciso que você me diga uma nota de 0 a 10."
+                    "Não consegui identificar uma nota de 0 a 10 na sua mensagem. "
+                    "Pode me dizer quanto você nos daria? Por exemplo: "
+                    "'Dou nota 8' ou simplesmente '8'."
                 )
     
     async def _handle_waiting_feedback(self, chat_id: str, text: str) -> str:
@@ -343,8 +386,7 @@ Resposta:"""
         
         return (
             "Obrigado! Sua avaliação já foi registrada.\n\n"
-            "Se quiser fazer uma nova avaliação, digite /start novamente "
-            "ou toque em /start para enviar automaticamente."
+            "Se quiser fazer uma nova avaliação, digite /start novamente."
         )
 
     def _reset_session_for_start(self, chat_id: str, session: ConversationSession):
