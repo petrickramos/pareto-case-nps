@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import ConversationList from "./ConversationList";
 import ConversationDetail from "./ConversationDetail";
 import ManualControls from "./ManualControls";
@@ -34,8 +34,27 @@ export default function Dashboard({ managerId }: { managerId?: string | null }) 
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [conversationMessages, setConversationMessages] = useState<ConversationMessage[]>([]);
   const [loading, setLoading] = useState(true);
+  const latestMessageRef = useRef<string | null>(null);
 
   const summaries = useMemo(() => buildSummary(messages), [messages]);
+
+  useEffect(() => {
+    const saved = typeof window !== "undefined" ? window.localStorage.getItem("pareto:selectedChatId") : null;
+    if (saved) {
+      setSelectedChatId(saved);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    if (selectedChatId) {
+      window.localStorage.setItem("pareto:selectedChatId", selectedChatId);
+    } else {
+      window.localStorage.removeItem("pareto:selectedChatId");
+    }
+  }, [selectedChatId]);
 
   useEffect(() => {
     const loadMessages = async () => {
@@ -47,6 +66,9 @@ export default function Dashboard({ managerId }: { managerId?: string | null }) 
 
       if (data) {
         setMessages(data as ConversationMessage[]);
+        if (data.length > 0) {
+          latestMessageRef.current = (data[0] as ConversationMessage).created_at;
+        }
       }
       setLoading(false);
     };
@@ -95,6 +117,56 @@ export default function Dashboard({ managerId }: { managerId?: string | null }) 
     return () => {
       supabase.removeChannel(channel);
     };
+  }, [selectedChatId]);
+
+  useEffect(() => {
+    const pollNewMessages = async () => {
+      let query = supabase
+        .from("conversation_messages")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (latestMessageRef.current) {
+        query = query.gt("created_at", latestMessageRef.current);
+      }
+
+      const { data } = await query;
+      if (!data || data.length === 0) {
+        return;
+      }
+
+      const incoming = data as ConversationMessage[];
+
+      setMessages((prev) => {
+        const map = new Map<string, ConversationMessage>();
+        prev.forEach((item) => map.set(item.id, item));
+        incoming.forEach((item) => map.set(item.id, item));
+        const merged = Array.from(map.values()).sort(
+          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        const next = merged.slice(0, 300);
+        latestMessageRef.current = next[0]?.created_at ?? latestMessageRef.current;
+        return next;
+      });
+
+      if (selectedChatId) {
+        const forChat = incoming.filter((item) => item.chat_id === selectedChatId);
+        if (forChat.length > 0) {
+          setConversationMessages((prev) => {
+            const map = new Map<string, ConversationMessage>();
+            prev.forEach((item) => map.set(item.id, item));
+            forChat.forEach((item) => map.set(item.id, item));
+            return Array.from(map.values()).sort(
+              (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+            );
+          });
+        }
+      }
+    };
+
+    const interval = window.setInterval(pollNewMessages, 5000);
+    return () => window.clearInterval(interval);
   }, [selectedChatId]);
 
   return (
