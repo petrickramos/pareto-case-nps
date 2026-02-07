@@ -205,14 +205,21 @@ export default function MetricsDashboard() {
   return (
     <div className="metrics-shell">
       <header className="metrics-header">
-        <div>
-          <h1 className="panel-title">Metricas NPS</h1>
-          <p className="panel-subtitle">
-            Atualizacao automatica a cada 10s · Ultima: {lastUpdated}
-          </p>
+        <div className="metrics-header-left">
+          <a className="mobile-back-btn metrics-back-link" href="/" aria-label="Voltar">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5M12 19l-7-7 7-7" />
+            </svg>
+          </a>
+          <div>
+            <h1 className="panel-title">Metricas NPS</h1>
+            <p className="panel-subtitle">
+              Atualizacao automatica a cada 10s · Ultima: {lastUpdated}
+            </p>
+          </div>
         </div>
         <div className="metrics-actions">
-          <a className="button secondary" href="/">
+          <a className="button secondary desktop-only" href="/">
             Voltar
           </a>
           <button className="button secondary" type="button" onClick={loadMetrics}>

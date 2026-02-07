@@ -38,6 +38,15 @@ export default function Dashboard({ managerId }: { managerId?: string | null }) 
 
   const summaries = useMemo(() => buildSummary(messages), [messages]);
 
+  // Detectar se é mobile
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
   useEffect(() => {
     const saved = typeof window !== "undefined" ? window.localStorage.getItem("pareto:selectedChatId") : null;
     if (saved) {
@@ -169,6 +178,78 @@ export default function Dashboard({ managerId }: { managerId?: string | null }) 
     return () => window.clearInterval(interval);
   }, [selectedChatId]);
 
+  const handleBack = () => {
+    setSelectedChatId(null);
+  };
+
+  // MOBILE: Layout estilo WhatsApp (uma tela por vez)
+  if (isMobile) {
+    // Se tem conversa selecionada, mostra a Tela 2 (conversa)
+    if (selectedChatId) {
+      return (
+        <div className="mobile-shell">
+          {/* Header com botão voltar */}
+          <header className="mobile-header">
+            <button className="mobile-back-btn" type="button" onClick={handleBack}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 12H5M12 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <div className="mobile-header-title">
+              <span className="mobile-chat-id">{selectedChatId.slice(0, 12)}...</span>
+              <span className="mobile-subtitle">Conversa ativa</span>
+            </div>
+          </header>
+
+          {/* Área de mensagens */}
+          <div className="mobile-messages">
+            <ConversationDetail chatId={selectedChatId} messages={conversationMessages} />
+          </div>
+
+          {/* Controles fixos na parte inferior */}
+          <div className="mobile-controls">
+            <ManualControls chatId={selectedChatId} managerId={managerId} />
+          </div>
+        </div>
+      );
+    }
+
+    // Tela 1: Lista de conversas
+    return (
+      <div className="mobile-shell">
+        <header className="mobile-header">
+          <div className="mobile-header-title" style={{ marginLeft: 0 }}>
+            <span className="mobile-title">Conversas</span>
+            <span className="mobile-subtitle">
+              {loading ? "Carregando..." : `${summaries.length} chats`}
+            </span>
+          </div>
+          <div className="mobile-header-actions">
+            <a className="button secondary small" href="/metrics">
+              Métricas
+            </a>
+            <button
+              className="button secondary small"
+              type="button"
+              onClick={() => supabase.auth.signOut()}
+            >
+              Sair
+            </button>
+          </div>
+        </header>
+
+        <div className="mobile-list">
+          <ConversationList
+            conversations={summaries}
+            selectedChatId={selectedChatId}
+            onSelect={setSelectedChatId}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // DESKTOP: Layout original side-by-side
   return (
     <div className="app-shell">
       <section className="panel panel-stack">
@@ -205,7 +286,7 @@ export default function Dashboard({ managerId }: { managerId?: string | null }) 
 
       <section className="panel" style={{ display: "flex", flexDirection: "column" }}>
         <div className="panel-header">
-          <h2 className="panel-title">Auditoria & Intervenção</h2>
+          <h2 className="panel-title">Auditoria &amp; Intervenção</h2>
           <p className="panel-subtitle">
             Histórico completo + controle manual do gerente
           </p>
