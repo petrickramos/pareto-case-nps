@@ -540,22 +540,20 @@ textarea:focus {
 
 .gauge-outline {
   fill: none;
-  stroke: rgba(255, 255, 255, 0.35);
-  stroke-width: 2;
-}
-
-.gauge-inner {
-  fill: #ffffff;
+  stroke: rgba(255, 255, 255, 0.15);
+  stroke-width: 1;
 }
 
 .gauge-needle-line {
-  stroke: #111827;
-  stroke-width: 3;
+  stroke: #ffffff;
+  stroke-width: 4;
   stroke-linecap: round;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
 }
 
 .gauge-pivot {
-  fill: #111827;
+  fill: #ffffff;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
 }
 
 .gauge-meta {

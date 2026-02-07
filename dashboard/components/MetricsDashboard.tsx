@@ -191,14 +191,13 @@ export default function MetricsDashboard() {
   const clampedNps = Math.max(-100, Math.min(100, summary.npsScore));
   const needleAngle = 180 + ((clampedNps + 100) / 200) * 180;
 
+  // 3 segmentos NPS: Detrator (-100 a -34), Neutro (-34 a 33), Promotor (33 a 100)
+  // Proporções: Detrator 33%, Neutro 34%, Promotor 33% do arco total (180°)
   const gaugeSegments = useMemo(
     () => [
-      { color: "#e53935" },
-      { color: "#f57c00" },
-      { color: "#fdd835" },
-      { color: "#cddc39" },
-      { color: "#43a047" },
-      { color: "#26c6da" }
+      { color: SCORE_COLORS.DETRATOR, startAngle: 180, endAngle: 240 },  // Detratores (60°)
+      { color: SCORE_COLORS.NEUTRO, startAngle: 240, endAngle: 300 },    // Neutros (60°)
+      { color: SCORE_COLORS.PROMOTOR, startAngle: 300, endAngle: 360 }   // Promotores (60°)
     ],
     []
   );
@@ -282,30 +281,28 @@ export default function MetricsDashboard() {
               <div className="gauge-layout">
                 <div className="gauge-visual">
                   <svg className="gauge-svg" viewBox="0 0 200 120" role="img" aria-label="NPS gauge">
-                    {gaugeSegments.map((segment, index) => {
-                      const start = 180 + index * 30;
-                      const end = start + 30;
-                      return (
-                        <path
-                          key={segment.color}
-                          d={describeRingSegment(100, 100, 90, 60, start, end)}
-                          fill={segment.color}
-                        />
-                      );
-                    })}
+                    {gaugeSegments.map((segment) => (
+                      <path
+                        key={segment.color}
+                        d={describeRingSegment(100, 100, 90, 60, segment.startAngle, segment.endAngle)}
+                        fill={segment.color}
+                      />
+                    ))}
                     <path
                       d={describeArc(100, 100, 90, 180, 360)}
                       className="gauge-outline"
                     />
-                    <circle cx="100" cy="100" r="52" className="gauge-inner" />
+                    {/* Ponteiro branco sem círculo interno */}
                     <line
                       x1="100"
                       y1="100"
-                      x2={polarToCartesian(100, 100, 68, needleAngle).x}
-                      y2={polarToCartesian(100, 100, 68, needleAngle).y}
+                      x2={polarToCartesian(100, 100, 80, needleAngle).x}
+                      y2={polarToCartesian(100, 100, 80, needleAngle).y}
                       className="gauge-needle-line"
+                      strokeWidth="4"
+                      strokeLinecap="round"
                     />
-                    <circle cx="100" cy="100" r="8" className="gauge-pivot" />
+                    <circle cx="100" cy="100" r="10" className="gauge-pivot" />
                   </svg>
                 </div>
                 <div className="gauge-meta">
