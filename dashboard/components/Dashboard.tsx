@@ -11,16 +11,28 @@ function buildSummary(messages: ConversationMessage[]): ConversationSummary[] {
 
   messages.forEach((message) => {
     const current = map.get(message.chat_id);
-    if (!current || new Date(message.created_at) > new Date(current.updated_at)) {
+    const isNewer = !current || new Date(message.created_at) > new Date(current.updated_at);
+
+    // Se a mensagem for mais recente, atualizamos os dados principais
+    if (isNewer) {
       map.set(message.chat_id, {
         chat_id: message.chat_id,
         last_message: message.message_text,
         last_sender: message.sender,
         last_state: message.conversation_state,
-        nps_score: message.nps_score,
-        sentiment: message.sentiment,
+        // Preserva o nps_score antigo se o novo for nulo, ou usa o novo se existir
+        nps_score: message.nps_score ?? (current?.nps_score ?? null),
+        sentiment: message.sentiment ?? (current?.sentiment ?? null),
         updated_at: message.created_at
       });
+    } else if (current) {
+      // Se a mensagem for mais antiga, mas tiver nps_score e o atual não tiver, atualizamos
+      if (current.nps_score === null && message.nps_score !== null) {
+        current.nps_score = message.nps_score;
+      }
+      if (current.sentiment === null && message.sentiment !== null) {
+        current.sentiment = message.sentiment;
+      }
     }
   });
 

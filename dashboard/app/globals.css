@@ -179,6 +179,22 @@ main {
   min-width: 0;
 }
 
+.list-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 6px;
+}
+
+.nps-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
+}
+
 .list-item:hover {
   border-color: rgba(139, 92, 246, 0.45);
   transform: translateY(-1px);
