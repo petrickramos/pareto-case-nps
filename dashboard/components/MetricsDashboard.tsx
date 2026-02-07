@@ -3,6 +3,85 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase, ConversationMessage } from "../lib/supabaseClient";
 
+// Componente de ícone Info
+function InfoIcon({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      className="info-icon-btn"
+      onClick={onClick}
+      aria-label="O que é NPS?"
+      title="O que é NPS?"
+    >
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <path d="M12 16v-4M12 8h.01" />
+      </svg>
+    </button>
+  );
+}
+
+// Modal de explicação do NPS
+function NpsInfoModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3>O que é NPS?</h3>
+          <button type="button" className="modal-close" onClick={onClose} aria-label="Fechar">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="modal-body">
+          <p className="modal-intro">
+            O <strong>Net Promoter Score (NPS)</strong> mede a lealdade dos clientes com base em uma pergunta simples:
+            "De 0 a 10, quanto você nos recomendaria?"
+          </p>
+
+          <div className="nps-formula">
+            <code>NPS = % Promotores − % Detratores</code>
+          </div>
+
+          <div className="nps-categories">
+            <div className="nps-category promotor">
+              <span className="category-badge">9-10</span>
+              <div>
+                <strong>Promotores</strong>
+                <p>Clientes entusiasmados que recomendam ativamente</p>
+              </div>
+            </div>
+            <div className="nps-category neutro">
+              <span className="category-badge">7-8</span>
+              <div>
+                <strong>Neutros</strong>
+                <p>Satisfeitos mas não engajados (não entram no cálculo)</p>
+              </div>
+            </div>
+            <div className="nps-category detrator">
+              <span className="category-badge">0-6</span>
+              <div>
+                <strong>Detratores</strong>
+                <p>Insatisfeitos que podem prejudicar a marca</p>
+              </div>
+            </div>
+          </div>
+
+          <h4>Zonas do NPS (-100 a +100)</h4>
+          <div className="nps-zones">
+            <div className="nps-zone critical"><span>&lt; 0</span> Zona Crítica</div>
+            <div className="nps-zone improvement"><span>0 a 30</span> Aperfeiçoamento</div>
+            <div className="nps-zone quality"><span>30 a 50</span> Qualidade</div>
+            <div className="nps-zone excellence"><span>50 a 75</span> Excelência</div>
+            <div className="nps-zone enchantment"><span>&gt; 75</span> Encantamento</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 type ScoreSnapshot = Pick<ConversationMessage, "chat_id" | "nps_score" | "created_at">;
 
 type ScoreCategory = "PROMOTOR" | "NEUTRO" | "DETRATOR";
@@ -97,6 +176,7 @@ export default function MetricsDashboard() {
   const [lastUpdated, setLastUpdated] = useState<string>("-");
   const [error, setError] = useState<string | null>(null);
   const [distributionView, setDistributionView] = useState<"gauge" | "pie">("gauge");
+  const [showNpsInfo, setShowNpsInfo] = useState(false);
 
   const loadMetrics = useCallback(async () => {
     setError(null);
@@ -240,10 +320,14 @@ export default function MetricsDashboard() {
           <p className="metric-helper">Escala 0-10</p>
         </div>
         <div className="panel metric-card">
-          <p className="metric-label">NPS</p>
+          <div className="metric-card-header">
+            <p className="metric-label">NPS</p>
+            <InfoIcon onClick={() => setShowNpsInfo(true)} />
+          </div>
           <p className="metric-value">{summary.npsScore}</p>
           <p className="metric-helper">Promotores - Detratores</p>
         </div>
+        {showNpsInfo && <NpsInfoModal onClose={() => setShowNpsInfo(false)} />}
         <div className="panel metric-card">
           <p className="metric-label">Promotores</p>
           <p className="metric-value">{summary.promotores}</p>
